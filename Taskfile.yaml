@@ -1,0 +1,67 @@
+version: 3
+
+tasks:
+  mod:download:
+    run: once
+    cmd: go mod download
+    sources:
+      - go.mod
+      - go.sum
+
+  test:
+    run: once
+    deps:
+      - mod:download
+    cmd: go test -tags=dev ./...
+    sources:
+      - Taskfile.yaml
+      - go.mod
+      - go.sum
+      - ./**/*.go
+      - ./**/*.yaml
+
+  lint:
+    run: once
+    deps:
+      - mod:download
+    env:
+      CGO_ENABLED: 0
+    cmds:
+      - gofmt -w .
+      - go tool golangci-lint run --allow-serial-runners --timeout=15m --build-tags=dev ./...
+    sources:
+      - Taskfile.yaml
+      - go.mod
+      - go.sum
+      - .golangci.yaml
+      - ./**/*.go
+      - ./**/*.yaml
+
+  build:
+    run: once
+    deps:
+      - mod:download
+    cmd: go build ./...
+    sources:
+      - Taskfile.yaml
+      - go.mod
+      - go.sum
+      - ./**/*.go
+      - ./**/*.yaml
+
+  check:
+    run: once
+    deps:
+      - build
+      - lint
+      - test
+
+  mod:tidy:
+    cmd: go mod tidy
+
+  outdated:
+    run: once
+    cmd: >-
+      go list -u -m
+      -f '{{"{{"}}if and (not .Main) (not .Indirect) .Update{{"}}"}}{{"{{"}}.Path{{"}}"}} {{"{{"}}.Version{{"}}"}} => {{"{{"}}.Update.Version{{"}}"}}{{"{{"}}end{{"}}"}}'
+      all
