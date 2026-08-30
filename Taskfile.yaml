@@ -1,5 +1,9 @@
 version: 3
 
+vars:
+  PUBLIC_OPENAPI_YAML: openapi/public.openapi.yaml
+  PUBLIC_API_OUT_DIR: publicapi
+
 tasks:
   mod:download:
     run: once
@@ -8,10 +12,30 @@ tasks:
       - go.mod
       - go.sum
 
-  test:
+  codegen:
     run: once
     deps:
       - mod:download
+    cmds:
+      - rm -rf {{.PUBLIC_API_OUT_DIR}}
+      - >-
+        go tool oasmith
+        --openapi {{.PUBLIC_OPENAPI_YAML}}
+        --mode client
+        --lang go
+        --out {{.PUBLIC_API_OUT_DIR}}
+    sources:
+      - Taskfile.yaml
+      - go.mod
+      - go.sum
+      - "{{.PUBLIC_OPENAPI_YAML}}"
+    generates:
+      - "{{.PUBLIC_API_OUT_DIR}}/**/*"
+
+  test:
+    run: once
+    deps:
+      - codegen
     cmd: go test -tags=dev ./...
     sources:
       - Taskfile.yaml
@@ -23,7 +47,7 @@ tasks:
   lint:
     run: once
     deps:
-      - mod:download
+      - codegen
     env:
       CGO_ENABLED: 0
     cmds:
@@ -42,7 +66,7 @@ tasks:
   build:
     run: once
     deps:
-      - mod:download
+      - codegen
     cmd: go build ./...
     sources:
       - Taskfile.yaml
@@ -55,10 +79,13 @@ tasks:
     run: once
     deps:
       - build
+      - codegen
       - lint
       - test
 
   mod:tidy:
+    deps:
+      - codegen
     cmd: go mod tidy
 
   outdated:

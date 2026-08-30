@@ -1,0 +1,2718 @@
+openapi: 3.2.0
+info:
+  title: Listenbox Public API
+  version: "1"
+paths:
+  /:
+    get:
+      operationId: openapi
+      responses:
+        "200":
+          description: Generated OpenAPI document.
+          headers:
+            ETag:
+              $ref: "#/components/headers/ETag"
+            Vary:
+              $ref: "#/components/headers/Vary"
+          content:
+            text/yaml:
+              schema:
+                $ref: "#/components/schemas/OpenAPIYAMLDocument"
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OpenAPIJSONDocument"
+        "304":
+          description: Selected OpenAPI representation has not changed.
+          headers:
+            ETag:
+              $ref: "#/components/headers/ETag"
+            Vary:
+              $ref: "#/components/headers/Vary"
+        "400":
+          description: "400"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ValidationErr"
+    head:
+      operationId: headOpenapi
+      responses:
+        "200":
+          description: Generated OpenAPI document.
+          headers:
+            ETag:
+              $ref: "#/components/headers/ETag"
+            Vary:
+              $ref: "#/components/headers/Vary"
+        "304":
+          description: Selected OpenAPI representation has not changed.
+          headers:
+            ETag:
+              $ref: "#/components/headers/ETag"
+            Vary:
+              $ref: "#/components/headers/Vary"
+        "400":
+          description: "400"
+  /cli/authorizations:
+    post:
+      description: Creates a fresh CLI authorization attempt. Subscribe to its events
+        separately.
+      operationId: createCLIAuthorization
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateCLIAuthorization"
+      security:
+        - ApiKeyAuth: []
+        - {}
+      responses:
+        "201":
+          description: "201"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CreatedCLIAuthorization"
+        "400":
+          description: "400"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ValidationErr"
+        "401":
+          description: An optional previous API key was invalid; retry anonymously.
+  /cli/authorizations/{code}/events:
+    get:
+      operationId: cliAuthorizationEvents
+      parameters:
+        - name: code
+          in: path
+          required: true
+          schema:
+            $ref: "#/components/schemas/CLIAuthorizationCode"
+      security:
+        - ApiKeyAuth: []
+        - {}
+      responses:
+        "200":
+          description: CLI authorization pending and terminal events.
+          content:
+            text/event-stream:
+              itemSchema:
+                $ref: "#/components/schemas/CLIAuthorizationEvent"
+        "400":
+          description: "400"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ValidationErr"
+        "404":
+          description: Authorization attempt not found.
+  /s/whoami:
+    get:
+      operationId: whoami
+      security:
+        - ApiKeyAuth: []
+      responses:
+        "200":
+          description: "200"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/APIKeyWhoami"
+        "400":
+          description: "400"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ValidationErr"
+        "401":
+          description: Missing or invalid token.
+  /s/team/members:
+    get:
+      operationId: listTeamMembers
+      security:
+        - ApiKeyAuth: []
+      responses:
+        "200":
+          description: "200"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TeamMemberCollection"
+        "400":
+          description: "400"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ValidationErr"
+        "401":
+          description: Missing or invalid token.
+        "403":
+          description: API key is missing team:read or its creator is no longer a member.
+  /s/team/invitations:
+    post:
+      operationId: createTeamInvitation
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateTeamInvitation"
+      security:
+        - ApiKeyAuth: []
+      responses:
+        "201":
+          description: "201"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PendingTeamInvitation"
+        "400":
+          description: "400"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ValidationErr"
+        "401":
+          description: Missing or invalid token.
+        "403":
+          description: API key is missing team:manage or its creator is not an owner.
+        "409":
+          description: Email is already a member or has a pending invite.
+  /s/team/invitations/{invitation_id}:
+    parameters:
+      - name: invitation_id
+        in: path
+        required: true
+        schema:
+          $ref: "#/components/schemas/TeamInvitationID"
+    put:
+      operationId: updateTeamInvitationRole
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateTeamMemberRole"
+      security:
+        - ApiKeyAuth: []
+      responses:
+        "200":
+          description: "200"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PendingTeamInvitation"
+        "400":
+          description: "400"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ValidationErr"
+        "401":
+          description: Missing or invalid token.
+        "403":
+          description: API key is missing team:manage or its creator is not an owner.
+        "404":
+          description: Pending invitation not found.
+    delete:
+      operationId: revokeTeamInvitation
+      security:
+        - ApiKeyAuth: []
+      responses:
+        "204":
+          description: Invitation revoked.
+        "400":
+          description: "400"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ValidationErr"
+        "401":
+          description: Missing or invalid token.
+        "403":
+          description: API key is missing team:manage or its creator is not an owner.
+        "404":
+          description: Pending invitation not found.
+  /s/team/members/{user_id}:
+    parameters:
+      - name: user_id
+        in: path
+        required: true
+        schema:
+          $ref: "#/components/schemas/UserID"
+    put:
+      operationId: updateTeamMemberRole
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateTeamMemberRole"
+      security:
+        - ApiKeyAuth: []
+      responses:
+        "204":
+          description: Member role changed.
+        "400":
+          description: "400"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ValidationErr"
+        "401":
+          description: Missing or invalid token.
+        "403":
+          description: API key is missing team:manage or its creator is not an owner.
+        "404":
+          description: Mutable team member not found.
+    delete:
+      operationId: removeTeamMember
+      security:
+        - ApiKeyAuth: []
+      responses:
+        "204":
+          description: Member removed.
+        "400":
+          description: "400"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ValidationErr"
+        "401":
+          description: Missing or invalid token.
+        "403":
+          description: API key is missing team:manage or its creator is not an owner.
+        "404":
+          description: Removable team member not found.
+  /s/shows:
+    get:
+      description: Lists shows accessible to both the API key's team and its user.
+      operationId: listShows
+      security:
+        - ApiKeyAuth: []
+      responses:
+        "200":
+          description: "200"
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Show"
+        "400":
+          description: "400"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ValidationErr"
+        "401":
+          description: Missing or invalid token.
+    post:
+      description: Creates a show owned by the API key's team.
+      operationId: createShow
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateShow"
+      security:
+        - ApiKeyAuth: []
+      responses:
+        "201":
+          description: "201"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Show"
+        "400":
+          description: "400"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ValidationErr"
+        "401":
+          description: Missing or invalid token.
+        "403":
+          description: API key is missing the show:create scope.
+        "409":
+          description: Show slug already exists.
+  /s/shows/{show_slug}/episodes:
+    get:
+      description: Lists every episode for an accessible show, newest first.
+      operationId: listEpisodes
+      parameters:
+        - name: show_slug
+          in: path
+          required: true
+          schema:
+            $ref: "#/components/schemas/ShowSlug"
+        - name: limit
+          in: query
+          schema:
+            $ref: "#/components/schemas/EpisodePageLimit"
+        - name: cursor
+          in: query
+          schema:
+            $ref: "#/components/schemas/EpisodePageCursor"
+      security:
+        - ApiKeyAuth: []
+      responses:
+        "200":
+          description: "200"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EpisodePage"
+        "400":
+          description: "400"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ValidationErr"
+        "401":
+          description: Missing or invalid token.
+        "403":
+          description: API key is missing the show:read scope.
+        "404":
+          description: Show was not found for the API key team and user.
+  /s/shows/{show_slug}/members:
+    get:
+      operationId: listShowMembers
+      parameters:
+        - name: show_slug
+          in: path
+          required: true
+          schema:
+            $ref: "#/components/schemas/ShowSlug"
+      security:
+        - ApiKeyAuth: []
+      responses:
+        "200":
+          description: "200"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ShowMemberCollection"
+        "400":
+          description: "400"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ValidationErr"
+        "401":
+          description: Missing or invalid token.
+        "403":
+          description: API key is missing show:read or its creator lacks effective show
+            access.
+        "404":
+          description: Show not found.
+  /s/shows/{show_slug}/invitations:
+    post:
+      operationId: createShowInvitation
+      parameters:
+        - name: show_slug
+          in: path
+          required: true
+          schema:
+            $ref: "#/components/schemas/ShowSlug"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateShowInvitation"
+      security:
+        - ApiKeyAuth: []
+      responses:
+        "201":
+          description: "201"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PendingShowInvitation"
+        "400":
+          description: "400"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ValidationErr"
+        "401":
+          description: Missing or invalid token.
+        "403":
+          description: API key is missing team:manage or its creator is not a team owner.
+        "404":
+          description: Show not found.
+        "409":
+          description: Email already has effective access or a pending invitation.
+  /s/shows/{show_slug}/invitations/{invitation_id}:
+    parameters:
+      - name: show_slug
+        in: path
+        required: true
+        schema:
+          $ref: "#/components/schemas/ShowSlug"
+      - name: invitation_id
+        in: path
+        required: true
+        schema:
+          $ref: "#/components/schemas/ShowInvitationID"
+    put:
+      operationId: updateShowInvitationRole
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateShowMemberRole"
+      security:
+        - ApiKeyAuth: []
+      responses:
+        "200":
+          description: "200"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PendingShowInvitation"
+        "400":
+          description: "400"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ValidationErr"
+        "401":
+          description: Missing or invalid token.
+        "403":
+          description: API key is missing team:manage or its creator is not a team owner.
+        "404":
+          description: Pending invitation not found.
+    delete:
+      operationId: revokeShowInvitation
+      security:
+        - ApiKeyAuth: []
+      responses:
+        "204":
+          description: Invitation revoked.
+        "400":
+          description: "400"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ValidationErr"
+        "401":
+          description: Missing or invalid token.
+        "403":
+          description: API key is missing team:manage or its creator is not a team owner.
+        "404":
+          description: Pending invitation not found.
+  /s/shows/{show_slug}/members/{user_id}:
+    parameters:
+      - name: show_slug
+        in: path
+        required: true
+        schema:
+          $ref: "#/components/schemas/ShowSlug"
+      - name: user_id
+        in: path
+        required: true
+        schema:
+          $ref: "#/components/schemas/UserID"
+    put:
+      operationId: updateShowMemberRole
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateShowMemberRole"
+      security:
+        - ApiKeyAuth: []
+      responses:
+        "204":
+          description: Collaborator role changed.
+        "400":
+          description: "400"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ValidationErr"
+        "401":
+          description: Missing or invalid token.
+        "403":
+          description: API key is missing team:manage or its creator is not a team owner.
+        "404":
+          description: Direct collaborator not found.
+    delete:
+      operationId: removeShowMember
+      security:
+        - ApiKeyAuth: []
+      responses:
+        "204":
+          description: Collaborator removed.
+        "400":
+          description: "400"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ValidationErr"
+        "401":
+          description: Missing or invalid token.
+        "403":
+          description: API key is missing team:manage or its creator is not a team owner.
+        "404":
+          description: Direct collaborator not found.
+  /s/shows/{show_slug}/deletions:
+    post:
+      operationId: createShowDeletion
+      parameters:
+        - name: show_slug
+          in: path
+          required: true
+          schema:
+            $ref: "#/components/schemas/ShowSlug"
+      security:
+        - ApiKeyAuth: []
+      responses:
+        "202":
+          description: "202"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CreatedPublicShowDeletion"
+        "400":
+          description: "400"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ValidationErr"
+        "401":
+          description: Missing or invalid token.
+        "403":
+          description: The API key creator is no longer the show owner.
+        "404":
+          description: Show not found for the API key team.
+  /s/show-deletions/{show_deletion_run_id}/events:
+    get:
+      operationId: showDeletionEvents
+      parameters:
+        - name: show_deletion_run_id
+          in: path
+          required: true
+          schema:
+            $ref: "#/components/schemas/ShowDeletionRunID"
+      security:
+        - ApiKeyAuth: []
+      responses:
+        "200":
+          description: Durable show deletion progress and terminal events.
+          content:
+            text/event-stream:
+              itemSchema:
+                $ref: "#/components/schemas/ShowDeletionEvent"
+        "400":
+          description: "400"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ValidationErr"
+        "401":
+          description: Missing or invalid token.
+        "403":
+          description: The API key creator is no longer the show owner.
+        "404":
+          description: Show deletion run not found.
+  /s/episodes/{episode_id}/deletions:
+    post:
+      operationId: createEpisodeDeletion
+      parameters:
+        - name: episode_id
+          in: path
+          required: true
+          schema:
+            $ref: "#/components/schemas/EpisodeID"
+      security:
+        - ApiKeyAuth: []
+      responses:
+        "202":
+          description: "202"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CreatedPublicEpisodeDeletion"
+        "400":
+          description: "400"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ValidationErr"
+        "401":
+          description: Missing or invalid token.
+        "403":
+          description: The API key is missing episode:delete or its creator is not a team
+            owner.
+        "404":
+          description: Episode not found for the API key team.
+  /s/episode-deletions/{episode_deletion_run_id}/events:
+    get:
+      operationId: episodeDeletionEvents
+      parameters:
+        - name: episode_deletion_run_id
+          in: path
+          required: true
+          schema:
+            $ref: "#/components/schemas/EpisodeDeletionRunID"
+      security:
+        - ApiKeyAuth: []
+      responses:
+        "200":
+          description: Durable episode deletion progress and terminal events.
+          content:
+            text/event-stream:
+              itemSchema:
+                $ref: "#/components/schemas/EpisodeDeletionEvent"
+        "400":
+          description: "400"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ValidationErr"
+        "401":
+          description: Missing or invalid token.
+        "403":
+          description: The API key is missing episode:delete or its creator is not a team
+            owner.
+        "404":
+          description: Episode deletion run not found.
+  /s/image-uploads/presign:
+    post:
+      operationId: createImageUploadPresign
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateImageUploadPresign"
+      security:
+        - ApiKeyAuth: []
+      responses:
+        "201":
+          description: "201"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CreatedImageUploadPresign"
+        "400":
+          description: Unsupported artwork upload.
+        "401":
+          description: Missing or invalid token.
+        "402":
+          description: An audio plan is required to upload files.
+        "403":
+          description: API key is missing the show:create scope.
+        "409":
+          description: Show ID is already in use.
+  /s/image-uploads/{image_asset_id}/complete:
+    post:
+      operationId: completeImageUpload
+      parameters:
+        - name: image_asset_id
+          in: path
+          required: true
+          schema:
+            $ref: "#/components/schemas/ImageAssetID"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CompleteImageUpload"
+      security:
+        - ApiKeyAuth: []
+      responses:
+        "201":
+          description: "201"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ImageAsset"
+        "400":
+          description: Invalid or unsupported uploaded image.
+        "401":
+          description: Missing or invalid token.
+        "403":
+          description: API key is missing the show:create scope.
+        "404":
+          description: Uploaded image not found.
+        "409":
+          description: Image upload was already completed.
+  /s/rss-imports:
+    post:
+      operationId: importRSS
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ImportRSSRequest"
+      security:
+        - ApiKeyAuth: []
+      responses:
+        "202":
+          description: "202"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CreatedPublicRSSImport"
+        "400":
+          description: "400"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ValidationErr"
+        "401":
+          description: Missing or invalid token.
+        "402":
+          description: "402"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RSSImportEntitlementError"
+        "403":
+          description: API key is missing the show:create scope.
+        "409":
+          description: Requested show slug is already used or conflicts with the choice
+            owned by an existing import.
+  /s/rss-imports/{import_run_id}/events:
+    get:
+      operationId: importRSSRunEvents
+      parameters:
+        - name: import_run_id
+          in: path
+          required: true
+          schema:
+            $ref: "#/components/schemas/ImportRunID"
+      security:
+        - ApiKeyAuth: []
+      responses:
+        "200":
+          description: RSS import progress and terminal events.
+          content:
+            text/event-stream:
+              itemSchema:
+                $ref: "#/components/schemas/PublicRSSImportEvent"
+        "400":
+          description: "400"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ValidationErr"
+        "401":
+          description: Missing or invalid token.
+        "403":
+          description: API key is missing the show:read scope.
+        "404":
+          description: Import run not found.
+  /s/episode-upload-sessions:
+    post:
+      description: Idempotently admits a resumable source upload without creating an
+        episode.
+      operationId: createEpisodeUploadSession
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateEpisodeUploadSession"
+      security:
+        - ApiKeyAuth: []
+      responses:
+        "200":
+          description: "200"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EpisodeUploadSession"
+        "201":
+          description: "201"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EpisodeUploadSession"
+        "400":
+          description: "400"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ValidationErr"
+        "401":
+          description: Missing or invalid token.
+        "403":
+          description: API key is missing the episode:create scope.
+        "404":
+          description: Show slug was not found for the API key team.
+        "409":
+          description: Source identity conflicts with the existing session.
+        "410":
+          description: The resumable upload attempt expired.
+  /s/episode-upload-sessions/{upload_session_id}:
+    parameters:
+      - name: upload_session_id
+        in: path
+        required: true
+        schema:
+          $ref: "#/components/schemas/UploadSessionID"
+    get:
+      operationId: getEpisodeUploadSession
+      security:
+        - ApiKeyAuth: []
+      responses:
+        "200":
+          description: "200"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EpisodeUploadSession"
+        "400":
+          description: "400"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ValidationErr"
+        "401":
+          description: Missing or invalid token.
+        "404":
+          description: Episode upload session was not found.
+        "410":
+          description: The resumable upload session expired.
+    put:
+      operationId: updateEpisodeUploadSession
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PatchEpisodeUploadSession"
+      security:
+        - ApiKeyAuth: []
+      responses:
+        "200":
+          description: "200"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EpisodeUploadSession"
+        "400":
+          description: "400"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ValidationErr"
+        "401":
+          description: Missing or invalid token.
+        "404":
+          description: Episode upload session was not found.
+        "409":
+          description: Session metadata can no longer be changed.
+        "410":
+          description: The resumable upload session expired.
+    delete:
+      description: Terminalizes a failed or abandoned intake and schedules durable
+        object-store cleanup.
+      operationId: cancelEpisodeUploadSession
+      security:
+        - ApiKeyAuth: []
+      responses:
+        "204":
+          description: Upload session cancelled.
+        "400":
+          description: "400"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ValidationErr"
+        "401":
+          description: Missing or invalid token.
+        "404":
+          description: Episode upload session was not found.
+        "409":
+          description: Upload session already entered processing.
+  /s/episode-upload-sessions/{upload_session_id}/parts/presign:
+    post:
+      operationId: presignEpisodeUploadSessionParts
+      parameters:
+        - name: upload_session_id
+          in: path
+          required: true
+          schema:
+            $ref: "#/components/schemas/UploadSessionID"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PresignEpisodeUploadSessionParts"
+      security:
+        - ApiKeyAuth: []
+      responses:
+        "201":
+          description: "201"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PresignedEpisodeUploadParts"
+        "400":
+          description: "400"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ValidationErr"
+        "401":
+          description: Missing or invalid token.
+        "402":
+          description: An audio plan is required to upload files.
+        "404":
+          description: Episode upload session was not found.
+        "409":
+          description: Attempt is no longer accepting upload parts.
+        "410":
+          description: The resumable upload attempt expired.
+  /s/episode-upload-sessions/{upload_session_id}/complete:
+    post:
+      description: Completes multipart upload from authoritative object-store
+        ListParts state and starts durable processing.
+      operationId: completeEpisodeUploadSession
+      parameters:
+        - name: upload_session_id
+          in: path
+          required: true
+          schema:
+            $ref: "#/components/schemas/UploadSessionID"
+      security:
+        - ApiKeyAuth: []
+      responses:
+        "200":
+          description: "200"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Episode"
+        "201":
+          description: "201"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Episode"
+        "400":
+          description: "400"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ValidationErr"
+        "401":
+          description: Missing or invalid token.
+        "404":
+          description: Episode upload session was not found.
+        "409":
+          description: Authoritative multipart parts are incomplete or invalid.
+        "410":
+          description: The resumable upload attempt expired.
+  /s/episode-upload-sessions/{upload_session_id}/events:
+    get:
+      operationId: episodeUploadSessionEvents
+      parameters:
+        - name: upload_session_id
+          in: path
+          required: true
+          schema:
+            $ref: "#/components/schemas/UploadSessionID"
+      security:
+        - ApiKeyAuth: []
+      responses:
+        "200":
+          description: Progress plus the durable safe-handoff or permanent-failure
+            milestone.
+          content:
+            text/event-stream:
+              itemSchema:
+                $ref: "#/components/schemas/EpisodeProcessingEvent"
+        "400":
+          description: "400"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ValidationErr"
+        "401":
+          description: Missing or invalid token.
+        "404":
+          description: Episode upload session was not found.
+components:
+  securitySchemes:
+    ApiKeyAuth:
+      type: http
+      description: Listenbox API key scoped to podcast management.
+      scheme: bearer
+  headers:
+    ETag:
+      description: HTTP entity tag for the selected OpenAPI representation.
+      schema:
+        type: string
+      required: true
+    Vary:
+      description: The representation varies by the Accept request header.
+      schema:
+        type: string
+        const: Accept
+      required: true
+  schemas:
+    OpenAPIYAMLDocument:
+      type: string
+      description: Generated OpenAPI YAML document.
+    OpenAPIJSONDocument:
+      description: Generated OpenAPI JSON document.
+      type: object
+      properties: {}
+      additionalProperties: false
+    NonEmptyString:
+      type: string
+      minLength: 1
+    ValidationLocation:
+      type: string
+      enum:
+        - body
+        - query
+        - path
+        - header
+        - cookie
+    string:
+      type: string
+    ValidationIssueCode:
+      type: string
+      description: Stable machine-readable validation failure code. Uses invalid,
+        parse, required, JSON Schema keyword names, additionalProperties for
+        unknown object fields, and format.<format> for named format failures.
+      examples:
+        - required
+        - minLength
+        - format.uri
+        - additionalProperties
+    ValidationIssue:
+      type: object
+      properties:
+        in:
+          $ref: "#/components/schemas/ValidationLocation"
+        field:
+          type: string
+        path:
+          type: array
+          items:
+            $ref: "#/components/schemas/string"
+        code:
+          $ref: "#/components/schemas/ValidationIssueCode"
+        message:
+          $ref: "#/components/schemas/NonEmptyString"
+      required:
+        - in
+        - code
+        - message
+      additionalProperties: false
+    ValidationErr:
+      type: object
+      properties:
+        message:
+          $ref: "#/components/schemas/NonEmptyString"
+        errors:
+          type: array
+          items:
+            $ref: "#/components/schemas/ValidationIssue"
+          minItems: 0
+      required:
+        - message
+        - errors
+      additionalProperties: false
+    ApiKeyScope:
+      type: string
+      enum:
+        - team:read
+        - team:manage
+        - show:read
+        - show:create
+        - show:update
+        - episode:create
+        - episode:delete
+        - episode:update
+        - episode:publish
+    CreateCLIAuthorization:
+      type: object
+      properties:
+        scopes:
+          type: array
+          items:
+            $ref: "#/components/schemas/ApiKeyScope"
+          minItems: 1
+      required:
+        - scopes
+      additionalProperties: false
+    CLIAuthorizationCode:
+      type: string
+      pattern: ^cla_[A-Za-z0-9_-]+$
+    CreatedCLIAuthorization:
+      type: object
+      properties:
+        code:
+          $ref: "#/components/schemas/CLIAuthorizationCode"
+        verification_url:
+          type: string
+          format: uri
+          pattern: ^https?://\S+$
+        credential:
+          type: string
+          description: Pending API key credential. It remains inactive until approval.
+          pattern: ^apk_[a-f0-9]{32}\.[A-Za-z0-9_-]{22}$
+      required:
+        - code
+        - verification_url
+        - credential
+      additionalProperties: false
+    CLIAuthorizationPendingEvent:
+      type: object
+      properties:
+        type:
+          type: string
+          const: cli.authorization.pending
+        verification_url:
+          type: string
+          description: Absolute browser URL for this fresh authorization attempt.
+          format: uri
+          pattern: ^https?://\S+$
+        credential:
+          type: string
+          description: Pending API key credential. It remains inactive until approval.
+          pattern: ^apk_[a-f0-9]{32}\.[A-Za-z0-9_-]{22}$
+      required:
+        - type
+        - verification_url
+        - credential
+      additionalProperties: false
+    TeamID:
+      type: string
+      pattern: ^team_
+    CLIAuthorizationApprovedEvent:
+      type: object
+      properties:
+        type:
+          type: string
+          const: cli.authorization.approved
+        team_id:
+          $ref: "#/components/schemas/TeamID"
+      required:
+        - type
+        - team_id
+      additionalProperties: false
+    CLIAuthorizationDeniedEvent:
+      type: object
+      properties:
+        type:
+          type: string
+          const: cli.authorization.denied
+      required:
+        - type
+      additionalProperties: false
+    CLIAuthorizationExpiredEvent:
+      type: object
+      properties:
+        type:
+          type: string
+          const: cli.authorization.expired
+      required:
+        - type
+      additionalProperties: false
+    CLIAuthorizationEvent:
+      oneOf:
+        - type: object
+          properties:
+            event:
+              type: string
+              const: cli.authorization.pending
+            data:
+              type: string
+              contentMediaType: application/json
+              contentSchema:
+                $ref: "#/components/schemas/CLIAuthorizationPendingEvent"
+            id:
+              type: string
+            retry:
+              minimum: 0
+              type: integer
+          required:
+            - event
+            - data
+          additionalProperties: false
+        - type: object
+          properties:
+            event:
+              type: string
+              const: cli.authorization.approved
+            data:
+              type: string
+              contentMediaType: application/json
+              contentSchema:
+                $ref: "#/components/schemas/CLIAuthorizationApprovedEvent"
+            id:
+              type: string
+            retry:
+              minimum: 0
+              type: integer
+          required:
+            - event
+            - data
+          additionalProperties: false
+        - type: object
+          properties:
+            event:
+              type: string
+              const: cli.authorization.denied
+            data:
+              type: string
+              contentMediaType: application/json
+              contentSchema:
+                $ref: "#/components/schemas/CLIAuthorizationDeniedEvent"
+            id:
+              type: string
+            retry:
+              minimum: 0
+              type: integer
+          required:
+            - event
+            - data
+          additionalProperties: false
+        - type: object
+          properties:
+            event:
+              type: string
+              const: cli.authorization.expired
+            data:
+              type: string
+              contentMediaType: application/json
+              contentSchema:
+                $ref: "#/components/schemas/CLIAuthorizationExpiredEvent"
+            id:
+              type: string
+            retry:
+              minimum: 0
+              type: integer
+          required:
+            - event
+            - data
+          additionalProperties: false
+    ApiKeyID:
+      type: string
+      pattern: ^apk_
+    APIKeyWhoami:
+      type: object
+      properties:
+        email:
+          type: string
+          format: email
+        id:
+          $ref: "#/components/schemas/ApiKeyID"
+        name:
+          $ref: "#/components/schemas/NonEmptyString"
+        team_id:
+          $ref: "#/components/schemas/TeamID"
+        scopes:
+          type: array
+          items:
+            $ref: "#/components/schemas/ApiKeyScope"
+          minItems: 1
+      required:
+        - email
+        - id
+        - team_id
+        - scopes
+      additionalProperties: false
+    UserID:
+      type: string
+      pattern: ^usr_
+    User:
+      type: object
+      properties:
+        id:
+          $ref: "#/components/schemas/UserID"
+        email:
+          type: string
+          format: email
+        name:
+          $ref: "#/components/schemas/NonEmptyString"
+        picture_url:
+          type: string
+          format: uri
+      required:
+        - id
+        - email
+      additionalProperties: false
+    TeamRole:
+      type: string
+      enum:
+        - owner
+        - write
+        - read
+    UnixMillis:
+      description: UNIX epoch milliseconds.
+      minimum: 0
+      type: integer
+      format: int64
+    TeamMember:
+      type: object
+      properties:
+        user:
+          $ref: "#/components/schemas/User"
+        role:
+          $ref: "#/components/schemas/TeamRole"
+        joined_at:
+          $ref: "#/components/schemas/UnixMillis"
+      required:
+        - user
+        - role
+        - joined_at
+      additionalProperties: false
+    TeamInvitationID:
+      type: string
+      pattern: ^tinv_[a-f0-9]{16}$
+    AssignableTeamRole:
+      type: string
+      enum:
+        - write
+        - read
+    PendingTeamInvitation:
+      type: object
+      properties:
+        id:
+          $ref: "#/components/schemas/TeamInvitationID"
+        email:
+          type: string
+          format: email
+        role:
+          $ref: "#/components/schemas/AssignableTeamRole"
+        invited_at:
+          $ref: "#/components/schemas/UnixMillis"
+        expires_at:
+          $ref: "#/components/schemas/UnixMillis"
+      required:
+        - id
+        - email
+        - role
+        - invited_at
+        - expires_at
+      additionalProperties: false
+    TeamMemberCollection:
+      type: object
+      properties:
+        members:
+          type: array
+          items:
+            $ref: "#/components/schemas/TeamMember"
+          minItems: 1
+        invitations:
+          type: array
+          items:
+            $ref: "#/components/schemas/PendingTeamInvitation"
+          minItems: 0
+      required:
+        - members
+        - invitations
+      additionalProperties: false
+    CreateTeamInvitation:
+      type: object
+      properties:
+        email:
+          type: string
+          format: email
+        role:
+          $ref: "#/components/schemas/AssignableTeamRole"
+      required:
+        - email
+        - role
+      additionalProperties: false
+    UpdateTeamMemberRole:
+      type: object
+      properties:
+        role:
+          $ref: "#/components/schemas/AssignableTeamRole"
+      required:
+        - role
+      additionalProperties: false
+    ShowID:
+      type: string
+      pattern: ^shw_
+    ShowSlug:
+      type: string
+      description: Globally unique CLI show selector and Listenbox-owned website host
+        label. Product host labels are reserved.
+      minLength: 1
+      maxLength: 63
+      examples:
+        - my-daily-show
+      pattern: ^[a-z0-9]+(?:-[a-z0-9]+)*$
+    ShowSourceKind:
+      type: string
+      enum:
+        - audio
+        - video
+      description: "Kind of podcast: audio or video."
+      examples:
+        - audio
+        - video
+    ShowLanguage:
+      type: string
+      description: BCP 47 language code for the podcast and generated feeds.
+      examples:
+        - en
+        - en-US
+      pattern: ^[a-z]{2}(?:-[A-Z]{2})?$
+    Show:
+      type: object
+      properties:
+        id:
+          $ref: "#/components/schemas/ShowID"
+        team_id:
+          $ref: "#/components/schemas/TeamID"
+        title:
+          $ref: "#/components/schemas/NonEmptyString"
+        slug:
+          $ref: "#/components/schemas/ShowSlug"
+        source_kind:
+          $ref: "#/components/schemas/ShowSourceKind"
+        language:
+          $ref: "#/components/schemas/ShowLanguage"
+      required:
+        - id
+        - team_id
+        - title
+        - slug
+        - source_kind
+        - language
+      additionalProperties: false
+    ImageAssetID:
+      type: string
+      pattern: ^img_[a-f0-9]{16}$
+    CreateShow:
+      type: object
+      properties:
+        id:
+          $ref: "#/components/schemas/ShowID"
+        title:
+          $ref: "#/components/schemas/NonEmptyString"
+        slug:
+          $ref: "#/components/schemas/ShowSlug"
+        source_kind:
+          $ref: "#/components/schemas/ShowSourceKind"
+        language:
+          $ref: "#/components/schemas/ShowLanguage"
+        image_asset_id:
+          $ref: "#/components/schemas/ImageAssetID"
+      required:
+        - id
+        - title
+        - slug
+        - source_kind
+        - language
+      additionalProperties: false
+    EpisodePageLimit:
+      description: Maximum episodes returned in this page.
+      minimum: 1
+      maximum: 500
+      default: 100
+      type: integer
+      format: uint32
+    EpisodePageCursor:
+      type: string
+      description: Opaque cursor returned by the preceding episode page.
+      minLength: 1
+      maxLength: 1024
+    EpisodeID:
+      type: string
+      pattern: ^ep_
+    EpisodeStatus:
+      type: string
+      enum:
+        - draft
+        - published
+    ProcessingRunID:
+      type: string
+      pattern: ^run_
+    EpisodeProcessingStatus:
+      type: string
+      enum:
+        - queued
+        - processing
+        - completed
+        - failed
+    EpisodeProcessingSnapshot:
+      type: object
+      properties:
+        run_id:
+          $ref: "#/components/schemas/ProcessingRunID"
+        status:
+          $ref: "#/components/schemas/EpisodeProcessingStatus"
+        current_step:
+          $ref: "#/components/schemas/NonEmptyString"
+        percent:
+          minimum: 0
+          maximum: 100
+          type: integer
+          format: uint32
+        error_code:
+          $ref: "#/components/schemas/NonEmptyString"
+        error_message:
+          $ref: "#/components/schemas/NonEmptyString"
+      required:
+        - run_id
+        - status
+        - current_step
+        - percent
+      additionalProperties: false
+    EpisodeListItem:
+      type: object
+      properties:
+        id:
+          $ref: "#/components/schemas/EpisodeID"
+        show_id:
+          $ref: "#/components/schemas/ShowID"
+        title:
+          $ref: "#/components/schemas/NonEmptyString"
+        slug:
+          $ref: "#/components/schemas/NonEmptyString"
+        status:
+          $ref: "#/components/schemas/EpisodeStatus"
+        description:
+          type: string
+        republished_at:
+          $ref: "#/components/schemas/UnixMillis"
+        thumbnail_url:
+          type: string
+          format: uri
+          pattern: ^https?://\S+$
+        audio_url:
+          type: string
+          description: Playable audio-feed media URL, when an audio feed exists.
+          format: uri
+          pattern: ^https?://\S+$
+        video_hls_url:
+          type: string
+          description: Playable hosted-video HLS master playlist URL.
+          format: uri
+          pattern: ^https?://\S+$
+        duration_seconds:
+          minimum: 1
+          type: integer
+          format: int64
+        processing:
+          $ref: "#/components/schemas/EpisodeProcessingSnapshot"
+      required:
+        - id
+        - show_id
+        - title
+        - status
+      additionalProperties: false
+    EpisodePage:
+      type: object
+      properties:
+        episodes:
+          type: array
+          items:
+            $ref: "#/components/schemas/EpisodeListItem"
+          minItems: 0
+        next_cursor:
+          $ref: "#/components/schemas/EpisodePageCursor"
+      required:
+        - episodes
+      additionalProperties: false
+    ShowAccessSource:
+      type: string
+      enum:
+        - team
+        - show
+    ShowMember:
+      type: object
+      properties:
+        user:
+          $ref: "#/components/schemas/User"
+        role:
+          $ref: "#/components/schemas/TeamRole"
+        access_source:
+          $ref: "#/components/schemas/ShowAccessSource"
+        joined_at:
+          $ref: "#/components/schemas/UnixMillis"
+      required:
+        - user
+        - role
+        - access_source
+        - joined_at
+      additionalProperties: false
+    ShowInvitationID:
+      type: string
+      pattern: ^shinv_[a-f0-9]{16}$
+    PendingShowInvitation:
+      type: object
+      properties:
+        id:
+          $ref: "#/components/schemas/ShowInvitationID"
+        email:
+          type: string
+          format: email
+        role:
+          $ref: "#/components/schemas/AssignableTeamRole"
+        invited_at:
+          $ref: "#/components/schemas/UnixMillis"
+        expires_at:
+          $ref: "#/components/schemas/UnixMillis"
+      required:
+        - id
+        - email
+        - role
+        - invited_at
+        - expires_at
+      additionalProperties: false
+    ShowMemberCollection:
+      type: object
+      properties:
+        members:
+          type: array
+          items:
+            $ref: "#/components/schemas/ShowMember"
+          minItems: 1
+        invitations:
+          type: array
+          items:
+            $ref: "#/components/schemas/PendingShowInvitation"
+          minItems: 0
+      required:
+        - members
+        - invitations
+      additionalProperties: false
+    CreateShowInvitation:
+      type: object
+      properties:
+        email:
+          type: string
+          format: email
+        role:
+          $ref: "#/components/schemas/AssignableTeamRole"
+      required:
+        - email
+        - role
+      additionalProperties: false
+    UpdateShowMemberRole:
+      type: object
+      properties:
+        role:
+          $ref: "#/components/schemas/AssignableTeamRole"
+      required:
+        - role
+      additionalProperties: false
+    ShowDeletionRunID:
+      type: string
+      pattern: ^shdr_
+    CreatedPublicShowDeletion:
+      type: object
+      properties:
+        show_deletion_run_id:
+          $ref: "#/components/schemas/ShowDeletionRunID"
+      required:
+        - show_deletion_run_id
+      additionalProperties: false
+    ShowDeletionProgressEvent:
+      type: object
+      properties:
+        type:
+          type: string
+          const: progress
+        show_deletion_run_id:
+          $ref: "#/components/schemas/ShowDeletionRunID"
+        status:
+          type: string
+          enum:
+            - queued
+            - processing
+        current_step:
+          $ref: "#/components/schemas/NonEmptyString"
+        percent:
+          minimum: 0
+          maximum: 100
+          type: integer
+          format: uint32
+      required:
+        - type
+        - show_deletion_run_id
+        - status
+        - current_step
+        - percent
+      additionalProperties: false
+    ShowDeletionCompletedEvent:
+      type: object
+      properties:
+        type:
+          type: string
+          const: terminal
+        status:
+          type: string
+          const: completed
+        show_deletion_run_id:
+          $ref: "#/components/schemas/ShowDeletionRunID"
+        show_slug:
+          $ref: "#/components/schemas/ShowSlug"
+      required:
+        - type
+        - status
+        - show_deletion_run_id
+        - show_slug
+      additionalProperties: false
+    ShowDeletionFailedEvent:
+      type: object
+      properties:
+        type:
+          type: string
+          const: terminal
+        status:
+          type: string
+          const: failed
+        show_deletion_run_id:
+          $ref: "#/components/schemas/ShowDeletionRunID"
+        error_code:
+          $ref: "#/components/schemas/NonEmptyString"
+        error_message:
+          $ref: "#/components/schemas/NonEmptyString"
+      required:
+        - type
+        - status
+        - show_deletion_run_id
+        - error_code
+        - error_message
+      additionalProperties: false
+    ShowDeletionTerminalEvent:
+      discriminator:
+        propertyName: status
+        mapping:
+          completed: "#/components/schemas/ShowDeletionCompletedEvent"
+          failed: "#/components/schemas/ShowDeletionFailedEvent"
+      oneOf:
+        - $ref: "#/components/schemas/ShowDeletionCompletedEvent"
+        - $ref: "#/components/schemas/ShowDeletionFailedEvent"
+    ShowDeletionEvent:
+      oneOf:
+        - type: object
+          properties:
+            event:
+              type: string
+              const: progress
+            data:
+              type: string
+              contentMediaType: application/json
+              contentSchema:
+                $ref: "#/components/schemas/ShowDeletionProgressEvent"
+            id:
+              type: string
+            retry:
+              minimum: 0
+              type: integer
+          required:
+            - event
+            - data
+          additionalProperties: false
+        - type: object
+          properties:
+            event:
+              type: string
+              const: terminal
+            data:
+              type: string
+              contentMediaType: application/json
+              contentSchema:
+                $ref: "#/components/schemas/ShowDeletionTerminalEvent"
+            id:
+              type: string
+            retry:
+              minimum: 0
+              type: integer
+          required:
+            - event
+            - data
+          additionalProperties: false
+    EpisodeDeletionRunID:
+      type: string
+      pattern: ^epdr_
+    CreatedPublicEpisodeDeletion:
+      type: object
+      properties:
+        episode_deletion_run_id:
+          $ref: "#/components/schemas/EpisodeDeletionRunID"
+      required:
+        - episode_deletion_run_id
+      additionalProperties: false
+    EpisodeDeletionProgressEvent:
+      type: object
+      properties:
+        type:
+          type: string
+          const: progress
+        episode_deletion_run_id:
+          $ref: "#/components/schemas/EpisodeDeletionRunID"
+        status:
+          type: string
+          enum:
+            - queued
+            - processing
+        current_step:
+          $ref: "#/components/schemas/NonEmptyString"
+        percent:
+          minimum: 0
+          maximum: 100
+          type: integer
+          format: uint32
+      required:
+        - type
+        - episode_deletion_run_id
+        - status
+        - current_step
+        - percent
+      additionalProperties: false
+    EpisodeDeletionCompletedEvent:
+      type: object
+      properties:
+        type:
+          type: string
+          const: terminal
+        status:
+          type: string
+          const: completed
+        episode_deletion_run_id:
+          $ref: "#/components/schemas/EpisodeDeletionRunID"
+        episode_id:
+          $ref: "#/components/schemas/EpisodeID"
+      required:
+        - type
+        - status
+        - episode_deletion_run_id
+        - episode_id
+      additionalProperties: false
+    EpisodeDeletionFailedEvent:
+      type: object
+      properties:
+        type:
+          type: string
+          const: terminal
+        status:
+          type: string
+          const: failed
+        episode_deletion_run_id:
+          $ref: "#/components/schemas/EpisodeDeletionRunID"
+        error_code:
+          $ref: "#/components/schemas/NonEmptyString"
+        error_message:
+          $ref: "#/components/schemas/NonEmptyString"
+      required:
+        - type
+        - status
+        - episode_deletion_run_id
+        - error_code
+        - error_message
+      additionalProperties: false
+    EpisodeDeletionTerminalEvent:
+      discriminator:
+        propertyName: status
+        mapping:
+          completed: "#/components/schemas/EpisodeDeletionCompletedEvent"
+          failed: "#/components/schemas/EpisodeDeletionFailedEvent"
+      oneOf:
+        - $ref: "#/components/schemas/EpisodeDeletionCompletedEvent"
+        - $ref: "#/components/schemas/EpisodeDeletionFailedEvent"
+    EpisodeDeletionEvent:
+      oneOf:
+        - type: object
+          properties:
+            event:
+              type: string
+              const: progress
+            data:
+              type: string
+              contentMediaType: application/json
+              contentSchema:
+                $ref: "#/components/schemas/EpisodeDeletionProgressEvent"
+            id:
+              type: string
+            retry:
+              minimum: 0
+              type: integer
+          required:
+            - event
+            - data
+          additionalProperties: false
+        - type: object
+          properties:
+            event:
+              type: string
+              const: terminal
+            data:
+              type: string
+              contentMediaType: application/json
+              contentSchema:
+                $ref: "#/components/schemas/EpisodeDeletionTerminalEvent"
+            id:
+              type: string
+            retry:
+              minimum: 0
+              type: integer
+          required:
+            - event
+            - data
+          additionalProperties: false
+    CreateImageUploadPresign:
+      type: object
+      properties:
+        show_id:
+          $ref: "#/components/schemas/ShowID"
+        content_type:
+          type: string
+          enum:
+            - image/jpeg
+            - image/png
+        byte_length:
+          minimum: 1
+          maximum: 20971520
+          type: integer
+          format: int64
+        file_name:
+          $ref: "#/components/schemas/NonEmptyString"
+      required:
+        - show_id
+        - content_type
+        - byte_length
+      additionalProperties: false
+    ImageUploadObjectKey:
+      type: string
+      pattern: ^shw_[a-f0-9]{16}/img_[a-f0-9]{16}\.(jpg|jpeg|png)$
+    CreatedImageUploadPresign:
+      type: object
+      properties:
+        image_asset_id:
+          $ref: "#/components/schemas/ImageAssetID"
+        method:
+          type: string
+          const: PUT
+        upload_url:
+          type: string
+          format: uri
+          pattern: ^https?://\S+$
+        object_key:
+          $ref: "#/components/schemas/ImageUploadObjectKey"
+        content_type:
+          type: string
+          enum:
+            - image/jpeg
+            - image/png
+        expires_at:
+          minimum: 1
+          type: integer
+          format: int64
+        public_url:
+          type: string
+          format: uri
+          pattern: ^https?://\S+$
+      required:
+        - image_asset_id
+        - method
+        - upload_url
+        - object_key
+        - content_type
+        - expires_at
+        - public_url
+      additionalProperties: false
+    CompleteImageUpload:
+      type: object
+      properties:
+        object_key:
+          $ref: "#/components/schemas/ImageUploadObjectKey"
+      required:
+        - object_key
+      additionalProperties: false
+    ImageAsset:
+      type: object
+      properties:
+        id:
+          $ref: "#/components/schemas/ImageAssetID"
+        public_url:
+          type: string
+          format: uri
+          pattern: ^https?://\S+$
+        content_type:
+          type: string
+          enum:
+            - image/jpeg
+            - image/png
+        byte_length:
+          minimum: 1
+          type: integer
+          format: int64
+        width_pixels:
+          minimum: 1
+          maximum: 4294967295
+          type: integer
+          format: int64
+        height_pixels:
+          minimum: 1
+          maximum: 4294967295
+          type: integer
+          format: int64
+        has_transparency:
+          type: boolean
+      required:
+        - id
+        - public_url
+        - content_type
+        - byte_length
+        - width_pixels
+        - height_pixels
+        - has_transparency
+      additionalProperties: false
+    ImportRSSRequest:
+      type: object
+      properties:
+        source_url:
+          type: string
+          format: uri
+          pattern: ^https?://\S+$
+        slug:
+          $ref: "#/components/schemas/ShowSlug"
+      required:
+        - source_url
+      additionalProperties: false
+    ImportRunID:
+      type: string
+      pattern: ^impr_
+    CreatedPublicRSSImport:
+      type: object
+      properties:
+        import_run_id:
+          $ref: "#/components/schemas/ImportRunID"
+      required:
+        - import_run_id
+      additionalProperties: false
+    RSSImportMediaKind:
+      type: string
+      enum:
+        - audio
+        - video
+      description: Supported enclosure kind selected for the RSS import.
+    VideoDeliveryEntitlement:
+      type: string
+      enum:
+        - free
+        - audio
+        - video_hd
+        - video_4k
+      description: Team delivery entitlement. HD and 4K permit hosted-video intake.
+    RSSImportEntitlementError:
+      type: object
+      properties:
+        code:
+          type: string
+          const: rss_import_entitlement_required
+        media_kind:
+          $ref: "#/components/schemas/RSSImportMediaKind"
+        current_entitlement:
+          $ref: "#/components/schemas/VideoDeliveryEntitlement"
+        required_entitlement:
+          $ref: "#/components/schemas/VideoDeliveryEntitlement"
+        pricing_url:
+          type: string
+          format: uri
+          pattern: ^https?://\S+$
+      required:
+        - code
+        - media_kind
+        - current_entitlement
+        - required_entitlement
+        - pricing_url
+      additionalProperties: false
+    RSSImportProgressEvent:
+      type: object
+      properties:
+        type:
+          type: string
+          const: progress
+        current_step:
+          $ref: "#/components/schemas/NonEmptyString"
+        percent:
+          minimum: 0
+          maximum: 100
+          type: integer
+          format: uint32
+      required:
+        - type
+        - current_step
+        - percent
+      additionalProperties: false
+    FeedID:
+      type: string
+      pattern: ^lb_
+    PublicRSSImportCompletedTerminalEvent:
+      type: object
+      properties:
+        type:
+          type: string
+          const: terminal
+        status:
+          type: string
+          const: completed
+        feed_id:
+          $ref: "#/components/schemas/FeedID"
+        team_id:
+          $ref: "#/components/schemas/TeamID"
+        show_id:
+          $ref: "#/components/schemas/ShowID"
+        show_slug:
+          $ref: "#/components/schemas/ShowSlug"
+      required:
+        - type
+        - status
+        - feed_id
+        - team_id
+        - show_id
+        - show_slug
+      additionalProperties: false
+    RSSImportFailedTerminalEvent:
+      type: object
+      properties:
+        type:
+          type: string
+          const: terminal
+        status:
+          type: string
+          const: failed
+        error_code:
+          $ref: "#/components/schemas/NonEmptyString"
+        error_message:
+          $ref: "#/components/schemas/NonEmptyString"
+        http_status:
+          minimum: 400
+          maximum: 599
+          type: integer
+          format: int64
+        retained_seconds:
+          minimum: 0
+          type: integer
+          format: int64
+        reserved_seconds:
+          minimum: 0
+          type: integer
+          format: int64
+        requested_seconds:
+          minimum: 0
+          type: integer
+          format: int64
+        limit_seconds:
+          minimum: 0
+          type: integer
+          format: int64
+        remaining_seconds:
+          minimum: 0
+          type: integer
+          format: int64
+        required_next_plan:
+          $ref: "#/components/schemas/NonEmptyString"
+        pricing_url:
+          type: string
+          format: uri
+        sales_contact_required:
+          type: boolean
+      required:
+        - type
+        - status
+        - error_code
+        - error_message
+      additionalProperties: false
+    RSSImportCancelledTerminalEvent:
+      type: object
+      properties:
+        type:
+          type: string
+          const: terminal
+        status:
+          type: string
+          const: cancelled
+      required:
+        - type
+        - status
+      additionalProperties: false
+    PublicRSSImportTerminalEvent:
+      discriminator:
+        propertyName: status
+        mapping:
+          completed: "#/components/schemas/PublicRSSImportCompletedTerminalEvent"
+          failed: "#/components/schemas/RSSImportFailedTerminalEvent"
+          cancelled: "#/components/schemas/RSSImportCancelledTerminalEvent"
+      oneOf:
+        - $ref: "#/components/schemas/PublicRSSImportCompletedTerminalEvent"
+        - $ref: "#/components/schemas/RSSImportFailedTerminalEvent"
+        - $ref: "#/components/schemas/RSSImportCancelledTerminalEvent"
+    PublicRSSImportEvent:
+      oneOf:
+        - type: object
+          properties:
+            event:
+              type: string
+              const: progress
+            data:
+              type: string
+              contentMediaType: application/json
+              contentSchema:
+                $ref: "#/components/schemas/RSSImportProgressEvent"
+            id:
+              type: string
+            retry:
+              minimum: 0
+              type: integer
+          required:
+            - event
+            - data
+          additionalProperties: false
+        - type: object
+          properties:
+            event:
+              type: string
+              const: terminal
+            data:
+              type: string
+              contentMediaType: application/json
+              contentSchema:
+                $ref: "#/components/schemas/PublicRSSImportTerminalEvent"
+            id:
+              type: string
+            retry:
+              minimum: 0
+              type: integer
+          required:
+            - event
+            - data
+          additionalProperties: false
+    EpisodeUploadContentType:
+      type: string
+      enum:
+        - audio/mpeg
+        - audio/mp4
+        - audio/wav
+        - audio/flac
+        - video/mp4
+        - video/quicktime
+    SHA256Hex:
+      type: string
+      pattern: ^[a-f0-9]{64}$
+    CreateEpisodeUploadSession:
+      type: object
+      properties:
+        show_slug:
+          $ref: "#/components/schemas/ShowSlug"
+        title:
+          $ref: "#/components/schemas/NonEmptyString"
+        description:
+          $ref: "#/components/schemas/NonEmptyString"
+        thumbnail_url:
+          type: string
+          format: uri
+          pattern: ^https?://\S+$
+        file_name:
+          $ref: "#/components/schemas/NonEmptyString"
+        content_type:
+          $ref: "#/components/schemas/EpisodeUploadContentType"
+        byte_length:
+          minimum: 1
+          type: integer
+          format: int64
+        source_sha256:
+          $ref: "#/components/schemas/SHA256Hex"
+      required:
+        - show_slug
+        - title
+        - file_name
+        - content_type
+        - byte_length
+        - source_sha256
+      additionalProperties: false
+    UploadSessionID:
+      type: string
+      description: Opaque resumable episode upload session identifier.
+      pattern: ^upl_[a-f0-9]{16}$
+    R2ObjectKey:
+      type: string
+      description: Stable object key in Listenbox-owned R2 storage.
+      minLength: 1
+    EpisodeUploadSessionPhase:
+      type: string
+      enum:
+        - created
+        - uploading
+        - processing
+        - completed
+        - failed
+        - expired
+    MediaUploadPartNumber:
+      minimum: 1
+      maximum: 10000
+      type: integer
+      format: uint32
+    CompletedEpisodeUploadPart:
+      type: object
+      properties:
+        part_number:
+          $ref: "#/components/schemas/MediaUploadPartNumber"
+        etag:
+          $ref: "#/components/schemas/NonEmptyString"
+        size:
+          minimum: 1
+          type: integer
+          format: int64
+      required:
+        - part_number
+        - etag
+        - size
+      additionalProperties: false
+    EpisodeUploadSession:
+      type: object
+      properties:
+        upload_session_id:
+          $ref: "#/components/schemas/UploadSessionID"
+        team_id:
+          $ref: "#/components/schemas/TeamID"
+        show_id:
+          $ref: "#/components/schemas/ShowID"
+        episode_id:
+          $ref: "#/components/schemas/EpisodeID"
+        title:
+          $ref: "#/components/schemas/NonEmptyString"
+        description:
+          type: string
+        thumbnail_url:
+          type: string
+          format: uri
+          pattern: ^https?://\S+$
+        file_name:
+          $ref: "#/components/schemas/NonEmptyString"
+        content_type:
+          $ref: "#/components/schemas/EpisodeUploadContentType"
+        byte_length:
+          minimum: 1
+          type: integer
+          format: int64
+        source_sha256:
+          $ref: "#/components/schemas/SHA256Hex"
+        source_duration_seconds:
+          minimum: 1
+          type: integer
+          format: int64
+        object_key:
+          $ref: "#/components/schemas/R2ObjectKey"
+        part_size:
+          minimum: 1
+          type: integer
+          format: int64
+        max_parallelism:
+          minimum: 1
+          type: integer
+          format: uint32
+        expires_at:
+          $ref: "#/components/schemas/UnixMillis"
+        phase:
+          $ref: "#/components/schemas/EpisodeUploadSessionPhase"
+        completed_parts:
+          type: array
+          items:
+            $ref: "#/components/schemas/CompletedEpisodeUploadPart"
+        processing:
+          $ref: "#/components/schemas/EpisodeProcessingSnapshot"
+      required:
+        - upload_session_id
+        - team_id
+        - show_id
+        - title
+        - file_name
+        - content_type
+        - byte_length
+        - source_sha256
+        - object_key
+        - part_size
+        - max_parallelism
+        - expires_at
+        - phase
+        - completed_parts
+      additionalProperties: false
+    PatchEpisodeUploadSession:
+      type: object
+      properties:
+        description:
+          type: string
+        thumbnail_url:
+          type: string
+          format: uri
+          pattern: ^https?://\S+$
+      additionalProperties: false
+    PresignEpisodeUploadSessionParts:
+      type: object
+      properties:
+        part_numbers:
+          type: array
+          items:
+            $ref: "#/components/schemas/MediaUploadPartNumber"
+          minItems: 1
+      required:
+        - part_numbers
+      additionalProperties: false
+    PresignedEpisodeUploadPart:
+      type: object
+      properties:
+        part_number:
+          $ref: "#/components/schemas/MediaUploadPartNumber"
+        method:
+          type: string
+          const: PUT
+        upload_url:
+          type: string
+          format: uri
+          pattern: ^https?://\S+$
+        expires_at:
+          $ref: "#/components/schemas/UnixMillis"
+      required:
+        - part_number
+        - method
+        - upload_url
+        - expires_at
+      additionalProperties: false
+    PresignedEpisodeUploadParts:
+      type: object
+      properties:
+        upload_session_id:
+          $ref: "#/components/schemas/UploadSessionID"
+        parts:
+          type: array
+          items:
+            $ref: "#/components/schemas/PresignedEpisodeUploadPart"
+          minItems: 1
+      required:
+        - upload_session_id
+        - parts
+      additionalProperties: false
+    EpisodeEnclosureFormat:
+      type: string
+      enum:
+        - mp3
+        - m4a
+        - wav
+        - flac
+        - mp4
+    EpisodeEnclosure:
+      type: object
+      properties:
+        feed_id:
+          $ref: "#/components/schemas/FeedID"
+        url:
+          type: string
+          format: uri
+        content_type:
+          $ref: "#/components/schemas/NonEmptyString"
+        byte_length:
+          minimum: 1
+          type: integer
+          format: int64
+        format:
+          $ref: "#/components/schemas/EpisodeEnclosureFormat"
+        duration_seconds:
+          minimum: 1
+          type: integer
+          format: int64
+      required:
+        - feed_id
+        - url
+        - content_type
+        - byte_length
+        - format
+        - duration_seconds
+      additionalProperties: false
+    Episode:
+      type: object
+      properties:
+        id:
+          $ref: "#/components/schemas/EpisodeID"
+        show_id:
+          $ref: "#/components/schemas/ShowID"
+        title:
+          $ref: "#/components/schemas/NonEmptyString"
+        slug:
+          $ref: "#/components/schemas/NonEmptyString"
+        status:
+          $ref: "#/components/schemas/EpisodeStatus"
+        description:
+          type: string
+        link:
+          type: string
+          format: uri
+          pattern: ^https?://\S+$
+        republished_at:
+          $ref: "#/components/schemas/UnixMillis"
+        thumbnail_url:
+          type: string
+          format: uri
+        video_hls_url:
+          type: string
+          format: uri
+        processing:
+          $ref: "#/components/schemas/EpisodeProcessingSnapshot"
+        enclosures:
+          type: array
+          items:
+            $ref: "#/components/schemas/EpisodeEnclosure"
+          minItems: 0
+      required:
+        - id
+        - show_id
+        - title
+        - status
+        - enclosures
+      additionalProperties: false
+    EpisodeProcessingProgressEvent:
+      type: object
+      properties:
+        type:
+          type: string
+          const: episode.processing.progress
+        run_id:
+          $ref: "#/components/schemas/ProcessingRunID"
+        status:
+          $ref: "#/components/schemas/EpisodeProcessingStatus"
+        current_step:
+          $ref: "#/components/schemas/NonEmptyString"
+        percent:
+          minimum: 0
+          maximum: 100
+          type: integer
+          format: uint32
+      required:
+        - type
+        - run_id
+        - status
+        - current_step
+        - percent
+      additionalProperties: false
+    MediaVersionID:
+      type: string
+      pattern: ^mv_
+    EpisodeProcessingSafeHandoffEvent:
+      type: object
+      properties:
+        type:
+          type: string
+          const: episode.processing.safe_handoff
+        status:
+          type: string
+          const: ready
+        episode_id:
+          $ref: "#/components/schemas/EpisodeID"
+        run_id:
+          $ref: "#/components/schemas/ProcessingRunID"
+        media_version_id:
+          $ref: "#/components/schemas/MediaVersionID"
+        youtube_video_id:
+          $ref: "#/components/schemas/NonEmptyString"
+      required:
+        - type
+        - status
+        - episode_id
+        - run_id
+        - media_version_id
+      additionalProperties: false
+    EpisodeProcessingFailedEvent:
+      type: object
+      properties:
+        type:
+          type: string
+          const: episode.processing.failed
+        status:
+          type: string
+          const: failed
+        episode_id:
+          $ref: "#/components/schemas/EpisodeID"
+        run_id:
+          $ref: "#/components/schemas/ProcessingRunID"
+        error_code:
+          $ref: "#/components/schemas/NonEmptyString"
+        error_message:
+          $ref: "#/components/schemas/NonEmptyString"
+      required:
+        - type
+        - status
+        - episode_id
+        - run_id
+        - error_code
+        - error_message
+      additionalProperties: false
+    EpisodeProcessingEvent:
+      oneOf:
+        - type: object
+          properties:
+            event:
+              type: string
+              const: episode.processing.progress
+            data:
+              type: string
+              contentMediaType: application/json
+              contentSchema:
+                $ref: "#/components/schemas/EpisodeProcessingProgressEvent"
+            id:
+              type: string
+            retry:
+              minimum: 0
+              type: integer
+          required:
+            - event
+            - data
+          additionalProperties: false
+        - type: object
+          properties:
+            event:
+              type: string
+              const: episode.processing.safe_handoff
+            data:
+              type: string
+              contentMediaType: application/json
+              contentSchema:
+                $ref: "#/components/schemas/EpisodeProcessingSafeHandoffEvent"
+            id:
+              type: string
+            retry:
+              minimum: 0
+              type: integer
+          required:
+            - event
+            - data
+          additionalProperties: false
+        - type: object
+          properties:
+            event:
+              type: string
+              const: episode.processing.failed
+            data:
+              type: string
+              contentMediaType: application/json
+              contentSchema:
+                $ref: "#/components/schemas/EpisodeProcessingFailedEvent"
+            id:
+              type: string
+            retry:
+              minimum: 0
+              type: integer
+          required:
+            - event
+            - data
+          additionalProperties: false
+
