@@ -6,6 +6,7 @@ import (
 	"flag"
 	"fmt"
 	"io"
+	"net/http"
 	"strings"
 
 	publicapi "github.com/listenbox/listenbox-cli/publicapi"
@@ -77,12 +78,12 @@ func deleteEpisode(
 	}
 	if response == nil || response.Status202 == nil {
 		if response != nil {
-			switch {
-			case response.Status401:
+			switch response.StatusCode {
+			case http.StatusUnauthorized:
 				return fmt.Errorf("delete episode %q: authentication failed; run listenbox login", episodeID)
-			case response.Status403:
+			case http.StatusForbidden:
 				return fmt.Errorf("delete episode %q: only the current team owner may delete it", episodeID)
-			case response.Status404:
+			case http.StatusNotFound:
 				return fmt.Errorf("delete episode %q: episode not found", episodeID)
 			}
 			return fmt.Errorf("delete episode %q returned HTTP status %d", episodeID, response.StatusCode)
