@@ -20,6 +20,7 @@ const (
 	episodeFlagName     = "episode"
 	descriptionFlagName = "description"
 	fileFlagName        = "file"
+	publicationFlagName = "publication"
 	artworkFlagName     = "artwork"
 	languageFlagName    = "language"
 	limitFlagName       = "limit"
@@ -643,7 +644,7 @@ func writeEpisodesUsage(writer io.Writer) {
 	_, _ = fmt.Fprintln(writer)
 	_, _ = fmt.Fprintln(writer, "Commands:")
 	_, _ = fmt.Fprintln(writer, "  list      List episode IDs newest first")
-	_, _ = fmt.Fprintln(writer, "  create    Create a draft episode and upload its audio source")
+	_, _ = fmt.Fprintln(writer, "  create    Create an episode as a draft or publish it after processing")
 	_, _ = fmt.Fprintln(writer, "  delete    Permanently delete an episode by ID")
 }
 
@@ -672,14 +673,15 @@ func writeEpisodesCreateUsage(writer io.Writer) {
 	_, _ = fmt.Fprintln(
 		writer,
 		"Usage: listenbox [--config PATH] episodes create --show SLUG --title TITLE "+
-			"[--description TEXT] --file PATH [--config PATH]",
+			"[--description TEXT] --file PATH [--publication draft|publish] [--config PATH]",
 	)
 	_, _ = fmt.Fprintln(writer)
 	_, _ = fmt.Fprintln(writer, "Options:")
 	_, _ = fmt.Fprintln(writer, "  --show SLUG         Existing show slug (required)")
-	_, _ = fmt.Fprintln(writer, "  --title TITLE       Draft episode title (required)")
-	_, _ = fmt.Fprintln(writer, "  --description TEXT  Optional draft description")
-	_, _ = fmt.Fprintln(writer, "  --file PATH         Audio source file (required)")
+	_, _ = fmt.Fprintln(writer, "  --title TITLE       Episode title (required)")
+	_, _ = fmt.Fprintln(writer, "  --description TEXT  Optional episode description")
+	_, _ = fmt.Fprintln(writer, "  --file PATH         Audio or video source file (required)")
+	_, _ = fmt.Fprintln(writer, "  --publication MODE  draft or publish after processing (default draft)")
 	_, _ = fmt.Fprintln(writer, "  --config PATH       Path to CLI config file")
 }
 

@@ -299,13 +299,15 @@ func runEpisodesCreateCommand(
 ) error {
 	flags := flag.NewFlagSet("listenbox episodes create", flag.ContinueOnError)
 	flags.SetOutput(stderr)
-	arguments := episodesCreateArguments{}
+	arguments := episodesCreateArguments{Publication: publicapi.EpisodePublicationDraft}
 	description := ""
+	publication := string(arguments.Publication)
 	flags.StringVar(&configPath, configFlagName, configPath, "path to CLI config file")
 	flags.StringVar(&arguments.Show, showFlagName, "", "existing show slug (required)")
-	flags.StringVar(&arguments.Title, titleFlagName, "", "draft episode title (required)")
-	flags.StringVar(&description, descriptionFlagName, "", "optional draft description")
+	flags.StringVar(&arguments.Title, titleFlagName, "", "episode title (required)")
+	flags.StringVar(&description, descriptionFlagName, "", "optional episode description")
 	flags.StringVar(&arguments.File, fileFlagName, "", "audio or video source path (required)")
+	flags.StringVar(&publication, publicationFlagName, publication, "draft or publish after processing")
 	flags.Usage = func() { writeEpisodesCreateUsage(stderr) }
 	if err := flags.Parse(args); err != nil {
 		if errors.Is(err, flag.ErrHelp) {
@@ -316,6 +318,7 @@ func runEpisodesCreateCommand(
 	if flagWasSet(flags, descriptionFlagName) {
 		arguments.Description = &description
 	}
+	arguments.Publication = publicapi.EpisodePublication(publication)
 	configExplicit = configExplicit || flagWasSet(flags, configFlagName)
 	if flags.NArg() != 0 {
 		return fmt.Errorf("episodes create received unexpected argument %q", flags.Arg(0))
@@ -392,7 +395,7 @@ func createEpisode(
 			return err
 		}
 	}
-	episode, err := client.complete(ctx, record.UploadSessionID)
+	episode, err := client.complete(ctx, record.UploadSessionID, args.Publication)
 	if err != nil {
 		return err
 	}
@@ -420,8 +423,12 @@ func createEpisode(
 	if err := writeEpisodeResume(resumePath, record); err != nil {
 		return err
 	}
+	result := "Created draft episode"
+	if args.Publication == publicapi.EpisodePublicationPublish {
+		result = "Published episode"
+	}
 	if _, err := fmt.Fprintf(
-		stdout, "Created draft episode %q\nOpen in Listenbox: %s\n", args.Title, record.ManagementURL,
+		stdout, "%s %q\nOpen in Listenbox: %s\n", result, args.Title, record.ManagementURL,
 	); err != nil {
 		return fmt.Errorf("print created episode: %w", err)
 	}
@@ -500,46 +507,46 @@ func loadOrCreateEpisodeResume(
 	directory := filepath.Join(home, ".config", "listenbox", "episode-resume")
 	path := filepath.Join(directory, hex.EncodeToString(resumeIdentity[:])+".json")
 	raw, err := os.ReadFile(path)
-	if err == nil {
-		var record episodeResumeRecord
-		if decodeErr := json.Unmarshal(raw, &record); decodeErr != nil {
-			return "", record, fmt.Errorf("decode episode resume record %q: %w", path, decodeErr)
-		}
-		if record.Version != episodeResumeVersion {
-			return "", record, fmt.Errorf(
-				"episode resume record %q has an unsupported version; remove it to restart explicitly",
-				path,
-			)
-		}
-		if record.FileSHA256 != source.SHA256 || record.FileByteLength != source.ByteLength {
-			return "", record, fmt.Errorf(
-				"--file identity changed since resumable upload %s; remove %q to restart explicitly",
-				record.UploadSessionID,
-				path,
-			)
-		}
-		if record.ExpiresAt > 0 && record.ExpiresAt <= time.Now().UnixMilli() &&
-			record.Phase != "finalizing" && record.Phase != processingStatus && record.Phase != "completed" {
-			return "", record, fmt.Errorf(
-				"resumable upload %s expired; remove %q to restart explicitly",
-				record.UploadSessionID,
-				path,
-			)
-		}
-		record.FilePath = source.AbsolutePath
-		return path, record, nil
-	}
-	if !os.IsNotExist(err) {
+	if err != nil && !os.IsNotExist(err) {
 		return "", episodeResumeRecord{}, fmt.Errorf("read episode resume record %q: %w", path, err)
 	}
-	record := episodeResumeRecord{
-		Version:  episodeResumeVersion,
-		FilePath: source.AbsolutePath, FileSHA256: source.SHA256, FileByteLength: source.ByteLength,
-		CompletedParts: []episodeResumePart{}, Phase: "prepared",
+	if os.IsNotExist(err) {
+		record := episodeResumeRecord{
+			Version:  episodeResumeVersion,
+			FilePath: source.AbsolutePath, FileSHA256: source.SHA256, FileByteLength: source.ByteLength,
+			CompletedParts: []episodeResumePart{}, Phase: "prepared",
+		}
+		if err := writeEpisodeResume(path, record); err != nil {
+			return "", record, err
+		}
+		return path, record, nil
 	}
-	if err := writeEpisodeResume(path, record); err != nil {
-		return "", record, err
+	var record episodeResumeRecord
+	if decodeErr := json.Unmarshal(raw, &record); decodeErr != nil {
+		return "", record, fmt.Errorf("decode episode resume record %q: %w", path, decodeErr)
 	}
+	if record.Version != episodeResumeVersion {
+		return "", record, fmt.Errorf(
+			"episode resume record %q has an unsupported version; remove it to restart explicitly",
+			path,
+		)
+	}
+	if record.FileSHA256 != source.SHA256 || record.FileByteLength != source.ByteLength {
+		return "", record, fmt.Errorf(
+			"--file identity changed since resumable upload %s; remove %q to restart explicitly",
+			record.UploadSessionID,
+			path,
+		)
+	}
+	if record.ExpiresAt > 0 && record.ExpiresAt <= time.Now().UnixMilli() &&
+		record.Phase != "finalizing" && record.Phase != processingStatus && record.Phase != "completed" {
+		return "", record, fmt.Errorf(
+			"resumable upload %s expired; remove %q to restart explicitly",
+			record.UploadSessionID,
+			path,
+		)
+	}
+	record.FilePath = source.AbsolutePath
 	return path, record, nil
 }
 
@@ -707,11 +714,12 @@ func (client *episodeUploadClient) presign(
 func (client *episodeUploadClient) complete(
 	ctx context.Context,
 	uploadSessionID string,
+	publication publicapi.EpisodePublication,
 ) (completedEpisode, error) {
 	var result completedEpisode
 	err := client.doJSON(
 		ctx, http.MethodPost, "/s/episode-upload-sessions/"+uploadSessionID+"/complete",
-		nil, &result, http.StatusOK, http.StatusCreated,
+		map[string]any{publicationFlagName: publication}, &result, http.StatusOK, http.StatusCreated,
 	)
 	return result, err
 }

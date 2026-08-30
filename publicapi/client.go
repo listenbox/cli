@@ -1565,6 +1565,7 @@ func (c *Client) CancelEpisodeUploadSession(ctx context.Context, params CancelEp
 
 type CompleteEpisodeUploadSessionParams struct {
 	UploadSessionId UploadSessionID
+	Body            CompleteEpisodeUploadSession
 }
 
 type CompleteEpisodeUploadSessionResponse struct {
@@ -1574,6 +1575,7 @@ type CompleteEpisodeUploadSessionResponse struct {
 	Status201  *Episode
 	Status400  *ValidationErr
 	Status401  bool
+	Status403  bool
 	Status404  bool
 	Status409  bool
 	Status410  bool
@@ -1593,11 +1595,20 @@ func (c *Client) NewCompleteEpisodeUploadSessionRequest(ctx context.Context, par
 	if err != nil {
 		return nil, fmt.Errorf("build CompleteEpisodeUploadSession URL: %w", err)
 	}
-	req, err := http.NewRequestWithContext(ctx, "POST", endpoint.String(), nil)
+	var requestBody io.Reader
+	encodedBody, err := json.Marshal(params.Body)
+	if err != nil {
+		return nil, fmt.Errorf("encode CompleteEpisodeUploadSession JSON body: %w", err)
+	}
+	requestBody = bytes.NewReader(encodedBody)
+	req, err := http.NewRequestWithContext(ctx, "POST", endpoint.String(), requestBody)
 	if err != nil {
 		return nil, fmt.Errorf("build CompleteEpisodeUploadSession request: %w", err)
 	}
 	req.Header.Set("Accept", "application/json")
+	if requestBody != nil {
+		req.Header.Set("Content-Type", "application/json")
+	}
 	return req, nil
 }
 
@@ -1655,6 +1666,10 @@ func (c *Client) CompleteEpisodeUploadSession(ctx context.Context, params Comple
 	case 401:
 		_ = res.Body.Close()
 		result.Status401 = true
+		return result, nil
+	case 403:
+		_ = res.Body.Close()
+		result.Status403 = true
 		return result, nil
 	case 404:
 		_ = res.Body.Close()
