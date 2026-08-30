@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	z "github.com/Oudwins/zog"
+	publicapi "github.com/listenbox/listenbox-cli/publicapi"
 )
 
 type showsCreateArguments struct {
@@ -22,6 +23,7 @@ type episodesCreateArguments struct {
 	Title       string
 	Description *string
 	File        string
+	Publication publicapi.EpisodePublication
 }
 
 var showSlugPattern = regexp.MustCompile(`^[a-z0-9]+(?:-[a-z0-9]+)*$`)
@@ -92,12 +94,24 @@ func validateShowsCreateArguments(args *showsCreateArguments) error {
 
 func validateEpisodesCreateArguments(args *episodesCreateArguments) error {
 	issues := episodesCreateArgumentsSchema.Validate(args)
+	switch args.Publication {
+	case publicapi.EpisodePublicationDraft, publicapi.EpisodePublicationPublish:
+	default:
+		message := "must be draft or publish"
+		if strings.TrimSpace(string(args.Publication)) == "" {
+			message = "is required"
+		}
+		issues = append(issues, &z.ZogIssue{
+			Path: []string{publicationFlagName}, Value: args.Publication,
+			Message: message,
+		})
+	}
 	if len(issues) == 0 {
 		return nil
 	}
 	return &cliArgumentValidationError{
 		command: "episodes create", issues: issues,
-		order: []string{showFlagName, titleFlagName, descriptionFlagName, fileFlagName},
+		order: []string{showFlagName, titleFlagName, descriptionFlagName, fileFlagName, publicationFlagName},
 	}
 }
 

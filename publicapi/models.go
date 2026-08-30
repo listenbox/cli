@@ -174,6 +174,10 @@ type CLIAuthorizationPendingEvent struct {
 	VerificationUrl string `json:"verification_url"`
 }
 
+type CompleteEpisodeUploadSession struct {
+	Publication EpisodePublication `json:"publication"`
+}
+
 type CompleteImageUpload struct {
 	ObjectKey ImageUploadObjectKey `json:"object_key"`
 }
@@ -621,6 +625,13 @@ const (
 	EpisodeProcessingStatusProcessing EpisodeProcessingStatus = "processing"
 	EpisodeProcessingStatusCompleted  EpisodeProcessingStatus = "completed"
 	EpisodeProcessingStatusFailed     EpisodeProcessingStatus = "failed"
+)
+
+type EpisodePublication string
+
+const (
+	EpisodePublicationDraft   EpisodePublication = "draft"
+	EpisodePublicationPublish EpisodePublication = "publish"
 )
 
 type EpisodeStatus string

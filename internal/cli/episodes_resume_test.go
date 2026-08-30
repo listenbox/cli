@@ -9,6 +9,7 @@ import (
 	"testing"
 	"time"
 
+	publicapi "github.com/listenbox/listenbox-cli/publicapi"
 	"gotest.tools/v3/assert"
 )
 
@@ -16,7 +17,10 @@ func TestEpisodeResumeLookupIsScopedByShowAndFileSHA(t *testing.T) {
 	t.Parallel()
 	home := t.TempDir()
 	path := filepath.Join(t.TempDir(), "source.mp3")
-	args := episodesCreateArguments{Show: testShowsCreateSlug, Title: testEpisodeTitle, File: path}
+	args := episodesCreateArguments{
+		Show: testShowsCreateSlug, Title: testEpisodeTitle, File: path,
+		Publication: publicapi.EpisodePublicationDraft,
+	}
 	source := episodeSourceIdentity{AbsolutePath: path, ByteLength: 10, ContentType: episodeAudioMIME, SHA256: strings.Repeat("a", 64)}
 	resumePath, first, err := loadOrCreateEpisodeResume(home, args, source)
 	assert.NilError(t, err)
@@ -25,6 +29,7 @@ func TestEpisodeResumeLookupIsScopedByShowAndFileSHA(t *testing.T) {
 	resumed.AbsolutePath = secondPath
 	changedArgs := args
 	changedArgs.Title = "Changed local command metadata"
+	changedArgs.Publication = publicapi.EpisodePublicationPublish
 	resolvedPath, second, err := loadOrCreateEpisodeResume(home, changedArgs, resumed)
 	assert.NilError(t, err)
 	assert.Equal(t, resolvedPath, resumePath)
@@ -43,7 +48,10 @@ func TestEpisodeResumeRejectsExpiredAttemptAndPreservesDraftRecord(t *testing.T)
 	t.Parallel()
 	home := t.TempDir()
 	path := filepath.Join(t.TempDir(), "source.mp3")
-	args := episodesCreateArguments{Show: testShowsCreateSlug, Title: testEpisodeTitle, File: path}
+	args := episodesCreateArguments{
+		Show: testShowsCreateSlug, Title: testEpisodeTitle, File: path,
+		Publication: publicapi.EpisodePublicationDraft,
+	}
 	source := episodeSourceIdentity{AbsolutePath: path, ByteLength: 10, ContentType: episodeAudioMIME, SHA256: strings.Repeat("a", 64)}
 	resumePath, record, err := loadOrCreateEpisodeResume(home, args, source)
 	assert.NilError(t, err)
@@ -68,11 +76,14 @@ func TestSavedEpisodeProgressCountsAcceptedPartsOnly(t *testing.T) {
 	assert.Equal(t, output.String(), "Source upload: 50% saved\nSource upload: 100% saved\n")
 }
 
-func TestEpisodeResumeRecordContainsNoCredentialOrPresignedURL(t *testing.T) {
+func TestEpisodeResumeRecordContainsUploadFactsOnly(t *testing.T) {
 	t.Parallel()
 	home := t.TempDir()
 	path := filepath.Join(t.TempDir(), "source.mp3")
-	args := episodesCreateArguments{Show: testShowsCreateSlug, Title: testEpisodeTitle, File: path}
+	args := episodesCreateArguments{
+		Show: testShowsCreateSlug, Title: testEpisodeTitle, File: path,
+		Publication: publicapi.EpisodePublicationDraft,
+	}
 	source := episodeSourceIdentity{AbsolutePath: path, ByteLength: 10, ContentType: episodeAudioMIME, SHA256: strings.Repeat("a", 64)}
 	resumePath, _, err := loadOrCreateEpisodeResume(home, args, source)
 	assert.NilError(t, err)
@@ -80,6 +91,7 @@ func TestEpisodeResumeRecordContainsNoCredentialOrPresignedURL(t *testing.T) {
 	assert.NilError(t, err)
 	assert.Assert(t, !bytes.Contains(raw, []byte("upload_url")))
 	assert.Assert(t, !bytes.Contains(raw, []byte("api_key")))
+	assert.Assert(t, !bytes.Contains(raw, []byte("publication")))
 	info, err := os.Stat(resumePath)
 	assert.NilError(t, err)
 	assert.Equal(t, info.Mode().Perm(), os.FileMode(0o600))

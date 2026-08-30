@@ -10,6 +10,7 @@ import (
 	"sync/atomic"
 	"testing"
 
+	publicapi "github.com/listenbox/listenbox-cli/publicapi"
 	"gotest.tools/v3/assert"
 )
 
@@ -60,6 +61,14 @@ func TestEpisodesCreateArgumentValidation(t *testing.T) {
 			args episodesCreateArguments
 			want string
 		}{name: "show invalid", args: episodesCreateArguments{Show: "Not A Slug", Title: testEpisodeTitle, File: testEpisodeSource}, want: "--show must be a valid show slug"},
+		struct {
+			name string
+			args episodesCreateArguments
+			want string
+		}{name: "publication invalid", args: episodesCreateArguments{
+			Show: testShowsCreateSlug, Title: testEpisodeTitle, File: testEpisodeSource,
+			Publication: publicapi.EpisodePublication("later"),
+		}, want: "--publication must be draft or publish"},
 	)
 	blank := "  "
 	tests = append(tests, struct {
@@ -83,7 +92,8 @@ func TestEpisodesCreateReportsAllMissingArgumentsDeterministically(t *testing.T)
 	want := "episodes create: invalid arguments\n" +
 		"  --show is required\n" +
 		"  --title is required\n" +
-		"  --file is required"
+		"  --file is required\n" +
+		"  --publication is required"
 	for range 20 {
 		args := episodesCreateArguments{}
 		assert.Equal(t, validateEpisodesCreateArguments(&args).Error(), want)
@@ -92,7 +102,10 @@ func TestEpisodesCreateReportsAllMissingArgumentsDeterministically(t *testing.T)
 
 func TestEpisodesCreateDescriptionMayBeOmitted(t *testing.T) {
 	t.Parallel()
-	args := episodesCreateArguments{Show: testShowsCreateSlug, Title: testEpisodeTitle, File: testEpisodeSource}
+	args := episodesCreateArguments{
+		Show: testShowsCreateSlug, Title: testEpisodeTitle, File: testEpisodeSource,
+		Publication: publicapi.EpisodePublicationDraft,
+	}
 	assert.NilError(t, validateEpisodesCreateArguments(&args))
 }
 
