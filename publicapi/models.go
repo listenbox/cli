@@ -189,15 +189,14 @@ type CreateCLIAuthorization struct {
 }
 
 type CreateEpisodeUploadSession struct {
-	ByteLength            int64                    `json:"byte_length"`
-	ContentType           EpisodeUploadContentType `json:"content_type"`
-	Description           *NonEmptyString          `json:"description,omitempty"`
-	FileName              NonEmptyString           `json:"file_name"`
-	ShowSlug              ShowSlug                 `json:"show_slug"`
-	SourceDurationSeconds *int64                   `json:"source_duration_seconds,omitempty"`
-	SourceSha256          SHA256Hex                `json:"source_sha256"`
-	ThumbnailUrl          *string                  `json:"thumbnail_url,omitempty"`
-	Title                 NonEmptyString           `json:"title"`
+	ByteLength   int64                    `json:"byte_length"`
+	ContentType  EpisodeUploadContentType `json:"content_type"`
+	Description  *NonEmptyString          `json:"description,omitempty"`
+	FileName     NonEmptyString           `json:"file_name"`
+	ShowSlug     ShowSlug                 `json:"show_slug"`
+	SourceSha256 SHA256Hex                `json:"source_sha256"`
+	ThumbnailUrl *string                  `json:"thumbnail_url,omitempty"`
+	Title        NonEmptyString           `json:"title"`
 }
 
 type CreateImageUploadPresign struct {
@@ -1254,28 +1253,6 @@ const (
 	ValidationLocationCookie ValidationLocation = "cookie"
 )
 
-type VideoAdmissionError struct {
-	Code                 VideoAdmissionErrorCode  `json:"code"`
-	CurrentPlan          VideoPlan                `json:"current_plan"`
-	DeliveryEntitlement  VideoDeliveryEntitlement `json:"delivery_entitlement"`
-	LimitSeconds         int64                    `json:"limit_seconds"`
-	PricingUrl           string                   `json:"pricing_url"`
-	RemainingSeconds     int64                    `json:"remaining_seconds"`
-	RequestedSeconds     int64                    `json:"requested_seconds"`
-	RequiredNextPlan     VideoPlan                `json:"required_next_plan"`
-	ReservedSeconds      int64                    `json:"reserved_seconds"`
-	RetainedSeconds      int64                    `json:"retained_seconds"`
-	SalesContactRequired bool                     `json:"sales_contact_required"`
-}
-
-type VideoAdmissionErrorCode string
-
-const (
-	VideoAdmissionErrorCodeVideoPlanRequired   VideoAdmissionErrorCode = "video_plan_required"
-	VideoAdmissionErrorCodeVideoHoursExhausted VideoAdmissionErrorCode = "video_hours_exhausted"
-	VideoAdmissionErrorCodeVideoHoursExceeded  VideoAdmissionErrorCode = "video_hours_exceeded"
-)
-
 type VideoDeliveryEntitlement string
 
 const (
@@ -1283,14 +1260,6 @@ const (
 	VideoDeliveryEntitlementAudio   VideoDeliveryEntitlement = "audio"
 	VideoDeliveryEntitlementVideoHd VideoDeliveryEntitlement = "video_hd"
 	VideoDeliveryEntitlementVideo4k VideoDeliveryEntitlement = "video_4k"
-)
-
-type VideoPlan string
-
-const (
-	VideoPlanStarter      VideoPlan = "starter"
-	VideoPlanProfessional VideoPlan = "professional"
-	VideoPlanStudio       VideoPlan = "studio"
 )
 
 type String = string

@@ -28,7 +28,9 @@ tasks:
       CGO_ENABLED: 0
     cmds:
       - gofmt -w .
-      - go tool golangci-lint run --allow-serial-runners --timeout=15m --build-tags=dev ./...
+      - >-
+        go run github.com/golangci/golangci-lint/v2/cmd/golangci-lint@v2.13.1
+        run --allow-serial-runners --timeout=15m --build-tags=dev ./...
     sources:
       - Taskfile.yaml
       - go.mod

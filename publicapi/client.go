@@ -1119,7 +1119,6 @@ type CreateEpisodeUploadSessionResponse struct {
 	Status201  *EpisodeUploadSession
 	Status400  *ValidationErr
 	Status401  bool
-	Status402  *VideoAdmissionError
 	Status403  bool
 	Status404  bool
 	Status409  bool
@@ -1207,15 +1206,6 @@ func (c *Client) CreateEpisodeUploadSession(ctx context.Context, params CreateEp
 	case 401:
 		_ = res.Body.Close()
 		result.Status401 = true
-		return result, nil
-	case 402:
-		var decoded VideoAdmissionError
-		if err := json.NewDecoder(io.LimitReader(res.Body, maxDecodedBodyBytes)).Decode(&decoded); err != nil {
-			_ = res.Body.Close()
-			return nil, fmt.Errorf("decode CreateEpisodeUploadSession status 402 response: %w", err)
-		}
-		_ = res.Body.Close()
-		result.Status402 = &decoded
 		return result, nil
 	case 403:
 		_ = res.Body.Close()

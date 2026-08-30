@@ -8,7 +8,7 @@ import (
 	"io"
 	"os"
 
-	"github.com/listenbox/listenbox-cli/model"
+	publicapi "github.com/listenbox/listenbox-cli/publicapi"
 )
 
 const (
@@ -373,11 +373,6 @@ func runShowsCreateCommand(
 	if err := validateShowsCreateArguments(&arguments); err != nil {
 		return err
 	}
-	podcastType, err := model.NewPodcastTypeFromValue(arguments.Type)
-	if err != nil {
-		return fmt.Errorf("shows create: %w", err)
-	}
-
 	return createShow(
 		ctx,
 		stdout,
@@ -387,7 +382,7 @@ func runShowsCreateCommand(
 		defaultConfig,
 		arguments.Title,
 		arguments.Slug,
-		podcastType,
+		publicapi.ShowSourceKind(arguments.Type),
 		arguments.Artwork,
 		arguments.Language,
 	)

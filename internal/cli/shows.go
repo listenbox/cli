@@ -15,7 +15,6 @@ import (
 	"path/filepath"
 	"time"
 
-	"github.com/listenbox/listenbox-cli/model"
 	publicapi "github.com/listenbox/listenbox-cli/publicapi"
 )
 
@@ -81,7 +80,7 @@ func createShow(
 	defaultConfig loadedCLIConfig,
 	title string,
 	slug string,
-	podcastType model.PodcastType,
+	sourceKind publicapi.ShowSourceKind,
 	artworkPath string,
 	language string,
 ) error {
@@ -122,7 +121,7 @@ func createShow(
 			ImageAssetId: imageAssetID,
 			Title:        title,
 			Slug:         slug,
-			SourceKind:   publicapi.ShowSourceKind(podcastType.String()),
+			SourceKind:   sourceKind,
 			Language:     language,
 		},
 	})

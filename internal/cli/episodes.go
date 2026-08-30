@@ -11,23 +11,19 @@ import (
 	"flag"
 	"fmt"
 	"io"
-	"math"
 	"net/http"
 	"net/url"
 	"os"
 	"path/filepath"
 	"slices"
-	"strconv"
 	"strings"
 	"time"
 
-	"github.com/listenbox/listenbox-cli/mediarunner"
-	"github.com/listenbox/listenbox-cli/model"
 	publicapi "github.com/listenbox/listenbox-cli/publicapi"
 )
 
 const (
-	episodeResumeVersion                   = 3
+	episodeResumeVersion                   = 4
 	episodeResumeDirectoryMode os.FileMode = 0o700
 	episodeResumeFileMode      os.FileMode = 0o600
 	episodeProgressComplete                = int64(100)
@@ -47,11 +43,10 @@ func (*episodeUploadInterruptedError) Error() string {
 }
 
 type episodeSourceIdentity struct {
-	AbsolutePath    string
-	ByteLength      int64
-	ContentType     string
-	SHA256          string
-	DurationSeconds int64
+	AbsolutePath string
+	ByteLength   int64
+	ContentType  string
+	SHA256       string
 }
 
 type episodeResumePart struct {
@@ -61,19 +56,18 @@ type episodeResumePart struct {
 }
 
 type episodeResumeRecord struct {
-	Version               int                 `json:"version"`
-	EpisodeID             string              `json:"episode_id,omitempty"`
-	UploadSessionID       string              `json:"upload_session_id,omitempty"`
-	TeamID                string              `json:"team_id,omitempty"`
-	ShowID                string              `json:"show_id,omitempty"`
-	ManagementURL         string              `json:"management_url,omitempty"`
-	FilePath              string              `json:"file_path"`
-	FileSHA256            string              `json:"file_sha256"`
-	FileByteLength        int64               `json:"file_byte_length"`
-	SourceDurationSeconds int64               `json:"source_duration_seconds,omitempty"`
-	CompletedParts        []episodeResumePart `json:"completed_parts"`
-	ExpiresAt             int64               `json:"expires_at"`
-	Phase                 string              `json:"phase"`
+	Version         int                 `json:"version"`
+	EpisodeID       string              `json:"episode_id,omitempty"`
+	UploadSessionID string              `json:"upload_session_id,omitempty"`
+	TeamID          string              `json:"team_id,omitempty"`
+	ShowID          string              `json:"show_id,omitempty"`
+	ManagementURL   string              `json:"management_url,omitempty"`
+	FilePath        string              `json:"file_path"`
+	FileSHA256      string              `json:"file_sha256"`
+	FileByteLength  int64               `json:"file_byte_length"`
+	CompletedParts  []episodeResumePart `json:"completed_parts"`
+	ExpiresAt       int64               `json:"expires_at"`
+	Phase           string              `json:"phase"`
 }
 
 type episodeUploadSession struct {
@@ -125,58 +119,6 @@ type episodeUploadClient struct {
 	credential  string
 	httpClient  *http.Client
 	traceWriter io.Writer
-}
-
-type episodeVideoProbe struct {
-	Format struct {
-		Duration   string `json:"duration"`
-		FormatName string `json:"format_name"`
-	} `json:"format"`
-	Streams []struct {
-		CodecType string `json:"codec_type"`
-		Height    int64  `json:"height"`
-		Width     int64  `json:"width"`
-	} `json:"streams"`
-}
-
-type videoAdmissionError struct {
-	Code                 string `json:"code"`
-	CurrentPlan          string `json:"current_plan"`
-	DeliveryEntitlement  string `json:"delivery_entitlement"`
-	RequestedSeconds     int64  `json:"requested_seconds"`
-	RemainingSeconds     int64  `json:"remaining_seconds"`
-	RequiredNextPlan     string `json:"required_next_plan"`
-	PricingURL           string `json:"pricing_url"`
-	SalesContactRequired bool   `json:"sales_contact_required"`
-}
-
-func (failure videoAdmissionError) Error() string {
-	switch failure.Code {
-	case "video_plan_required":
-		return fmt.Sprintf(
-			"hosted-video plan required (current entitlement: %s); choose %s at %s",
-			failure.DeliveryEntitlement,
-			failure.RequiredNextPlan,
-			failure.PricingURL,
-		)
-	case "video_hours_exhausted":
-		return fmt.Sprintf(
-			"no retained video hours remain on %s; %s plan required; see %s",
-			failure.CurrentPlan,
-			failure.RequiredNextPlan,
-			failure.PricingURL,
-		)
-	case "video_hours_exceeded":
-		return fmt.Sprintf(
-			"video needs %d seconds but only %d seconds remain; %s plan required; see %s",
-			failure.RequestedSeconds,
-			failure.RemainingSeconds,
-			failure.RequiredNextPlan,
-			failure.PricingURL,
-		)
-	default:
-		return fmt.Sprintf("video admission failed with code %q", failure.Code)
-	}
 }
 
 func runEpisodesCommand(
@@ -395,7 +337,7 @@ func createEpisode(
 	defaultConfig loadedCLIConfig,
 	args episodesCreateArguments,
 ) error {
-	source, err := inspectEpisodeSource(ctx, args.File)
+	source, err := inspectEpisodeSource(args.File)
 	if err != nil {
 		return err
 	}
@@ -495,7 +437,7 @@ func createEpisode(
 	return nil
 }
 
-func inspectEpisodeSource(ctx context.Context, path string) (episodeSourceIdentity, error) {
+func inspectEpisodeSource(path string) (episodeSourceIdentity, error) {
 	absolutePath, err := filepath.Abs(path)
 	if err != nil {
 		return episodeSourceIdentity{}, fmt.Errorf("resolve --file %q: %w", path, err)
@@ -516,79 +458,36 @@ func inspectEpisodeSource(ctx context.Context, path string) (episodeSourceIdenti
 	if _, err := io.Copy(hash, file); err != nil {
 		return episodeSourceIdentity{}, fmt.Errorf("hash --file %q: %w", path, err)
 	}
-	format, err := model.NewMediaUploadFormatFromFileName(absolutePath)
+	contentType, err := episodeContentTypeForFileName(absolutePath)
 	if err != nil {
 		return episodeSourceIdentity{}, fmt.Errorf("inspect --file %q: %w", path, err)
 	}
-	identity := episodeSourceIdentity{
-		AbsolutePath: absolutePath, ByteLength: info.Size(), ContentType: format.ContentType(),
+	return episodeSourceIdentity{
+		AbsolutePath: absolutePath, ByteLength: info.Size(), ContentType: contentType,
 		SHA256: hex.EncodeToString(hash.Sum(nil)),
-	}
-	if format.PodcastType() == model.VideoPodcastType() {
-		durationSeconds, err := probeEpisodeVideo(ctx, absolutePath)
-		if err != nil {
-			return episodeSourceIdentity{}, fmt.Errorf("inspect video --file %q: %w", path, err)
-		}
-		identity.DurationSeconds = durationSeconds
-	}
-	return identity, nil
+	}, nil
 }
 
-//nolint:cyclop,mnd // Probe validation explicitly enumerates hostile stream and duration cases.
-func probeEpisodeVideo(ctx context.Context, sourcePath string) (int64, error) {
-	result, err := mediarunner.New().Run(
-		ctx,
-		"ffprobe",
-		"-v",
-		"error",
-		"-protocol_whitelist",
-		"file,pipe,crypto",
-		"-probesize",
-		"100M",
-		"-analyzeduration",
-		"100M",
-		"-print_format",
-		"json",
-		"-show_format",
-		"-show_streams",
-		sourcePath,
-	)
-	if err != nil {
-		return 0, fmt.Errorf("ffprobe: %w: %s", err, strings.TrimSpace(string(result.Stderr)))
+func episodeContentTypeForFileName(fileName string) (string, error) {
+	switch strings.ToLower(filepath.Ext(strings.TrimSpace(fileName))) {
+	case ".mp3":
+		return string(publicapi.EpisodeUploadContentTypeAudioMpeg), nil
+	case ".m4a":
+		return string(publicapi.EpisodeUploadContentTypeAudioMp4), nil
+	case ".wav":
+		return string(publicapi.EpisodeUploadContentTypeAudioWav), nil
+	case ".flac":
+		return string(publicapi.EpisodeUploadContentTypeAudioFlac), nil
+	case ".mp4", ".m4v":
+		return string(publicapi.EpisodeUploadContentTypeVideoMp4), nil
+	case ".mov":
+		return string(publicapi.EpisodeUploadContentTypeVideoQuicktime), nil
+	default:
+		return "", fmt.Errorf(
+			"unsupported media upload file %q; accepted extensions: .mp3, .m4a, .wav, .flac, .mp4, .m4v, .mov",
+			fileName,
+		)
 	}
-	var probe episodeVideoProbe
-	if err := json.Unmarshal(result.Stdout, &probe); err != nil {
-		return 0, fmt.Errorf("decode ffprobe output: %w", err)
-	}
-	formatName := strings.ToLower(probe.Format.FormatName)
-	if !strings.Contains(formatName, "mov") && !strings.Contains(formatName, "mp4") {
-		return 0, fmt.Errorf("unsupported video container %q", probe.Format.FormatName)
-	}
-	duration, err := strconv.ParseFloat(probe.Format.Duration, 64)
-	if err != nil || duration <= 0 || math.IsNaN(duration) || math.IsInf(duration, 0) {
-		return 0, fmt.Errorf("video duration %q is not finite and positive", probe.Format.Duration)
-	}
-	var hasVideo, hasAudio bool
-	if len(probe.Streams) != 2 {
-		return 0, errors.New("video source must contain exactly one video and one audio stream")
-	}
-	for _, stream := range probe.Streams {
-		switch stream.CodecType {
-		case "video":
-			if stream.Width <= 0 || stream.Height <= 0 {
-				return 0, errors.New("video stream dimensions must be positive")
-			}
-			hasVideo = true
-		case "audio":
-			hasAudio = true
-		default:
-			return 0, fmt.Errorf("video source contains unsupported %q stream", stream.CodecType)
-		}
-	}
-	if !hasVideo || !hasAudio {
-		return 0, errors.New("video source must contain video and audio streams")
-	}
-	return int64(math.Ceil(duration)), nil
 }
 
 //nolint:cyclop // Validates every persisted resume invariant before mutation.
@@ -612,8 +511,7 @@ func loadOrCreateEpisodeResume(
 				path,
 			)
 		}
-		if record.FileSHA256 != source.SHA256 || record.FileByteLength != source.ByteLength ||
-			record.SourceDurationSeconds != source.DurationSeconds {
+		if record.FileSHA256 != source.SHA256 || record.FileByteLength != source.ByteLength {
 			return "", record, fmt.Errorf(
 				"--file identity changed since resumable upload %s; remove %q to restart explicitly",
 				record.UploadSessionID,
@@ -637,8 +535,7 @@ func loadOrCreateEpisodeResume(
 	record := episodeResumeRecord{
 		Version:  episodeResumeVersion,
 		FilePath: source.AbsolutePath, FileSHA256: source.SHA256, FileByteLength: source.ByteLength,
-		SourceDurationSeconds: source.DurationSeconds,
-		CompletedParts:        []episodeResumePart{}, Phase: "prepared",
+		CompletedParts: []episodeResumePart{}, Phase: "prepared",
 	}
 	if err := writeEpisodeResume(path, record); err != nil {
 		return "", record, err
@@ -786,9 +683,6 @@ func (client *episodeUploadClient) createOrResume(
 	if args.Description != nil {
 		body[descriptionFlagName] = *args.Description
 	}
-	if source.DurationSeconds > 0 {
-		body["source_duration_seconds"] = source.DurationSeconds
-	}
 	var session episodeUploadSession
 	err := client.doJSON(
 		ctx, http.MethodPost, "/s/episode-upload-sessions", body, &session, http.StatusOK, http.StatusCreated,
@@ -888,14 +782,6 @@ func (client *episodeUploadClient) doJSON(
 		return err
 	}
 	if !slices.Contains(wantStatus, response.StatusCode) {
-		if response.StatusCode == http.StatusPaymentRequired {
-			var failure videoAdmissionError
-			decoder := json.NewDecoder(io.LimitReader(response.Body, episodeJSONResponseLimit))
-			if decodeErr := decoder.Decode(&failure); decodeErr != nil {
-				return fmt.Errorf("decode video admission response: %w", decodeErr)
-			}
-			return failure
-		}
 		message, _ := io.ReadAll(io.LimitReader(response.Body, episodeErrorResponseLimit))
 		return fmt.Errorf("episode upload returned HTTP %d: %s", response.StatusCode, strings.TrimSpace(string(message)))
 	}
