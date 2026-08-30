@@ -11,7 +11,7 @@ configuration types are committed to this repository.
 Requires Go 1.27 or newer.
 
 ```sh
-go install github.com/listenbox/listenbox-cli@latest
+go install github.com/listenbox/listenbox-cli/cmd/listenbox@latest
 ```
 
 Make sure Go's binary directory is on `PATH`, then authorize the CLI:
@@ -35,7 +35,7 @@ Generated API client and configuration files are committed, so a fresh clone
 builds without another repository or a code-generation step.
 
 ```sh
-go build ./...
+go build ./cmd/listenbox
 go test -tags=dev ./...
 ```
 

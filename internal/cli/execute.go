@@ -1,4 +1,4 @@
-package main
+package cli
 
 import (
 	"context"
@@ -16,7 +16,8 @@ import (
 
 const interruptedExitCode = 130
 
-func main() {
+// Execute runs the CLI and terminates the process with its exit status.
+func Execute() {
 	os.Exit(runMain())
 }
 

@@ -1,5 +1,5 @@
 //nolint:lll
-package main
+package cli
 
 import (
 	"context"

@@ -1,5 +1,5 @@
 //nolint:lll // Resume fixtures keep the complete strong file identity visible.
-package main
+package cli
 
 import (
 	"bytes"

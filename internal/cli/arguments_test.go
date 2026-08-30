@@ -1,5 +1,5 @@
 //nolint:lll // Fixtures keep each invocation together.
-package main
+package cli
 
 import (
 	"bytes"
