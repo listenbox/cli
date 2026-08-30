@@ -602,7 +602,6 @@ type OpenapiResponse struct {
 	StatusCode int
 	Raw        *http.Response
 	Status200  *OpenAPIJSONDocument
-	Status304  bool
 	Status400  *ValidationErr
 }
 
@@ -657,10 +656,6 @@ func (c *Client) Openapi(ctx context.Context) (*OpenapiResponse, error) {
 		_ = res.Body.Close()
 		result.Status200 = &decoded
 		return result, nil
-	case 304:
-		_ = res.Body.Close()
-		result.Status304 = true
-		return result, nil
 	case 400:
 		var decoded ValidationErr
 		if err := json.NewDecoder(io.LimitReader(res.Body, maxDecodedBodyBytes)).Decode(&decoded); err != nil {
@@ -669,6 +664,9 @@ func (c *Client) Openapi(ctx context.Context) (*OpenapiResponse, error) {
 		}
 		_ = res.Body.Close()
 		result.Status400 = &decoded
+		return result, nil
+	case 304:
+		_ = res.Body.Close()
 		return result, nil
 	default:
 		rawBody, readErr := io.ReadAll(io.LimitReader(res.Body, maxDiagnosticBodyBytes))
@@ -688,9 +686,6 @@ func (c *Client) Openapi(ctx context.Context) (*OpenapiResponse, error) {
 type HeadOpenapiResponse struct {
 	StatusCode int
 	Raw        *http.Response
-	Status200  bool
-	Status304  bool
-	Status400  bool
 }
 
 func (c *Client) NewHeadOpenapiRequest(ctx context.Context) (*http.Request, error) {
@@ -735,17 +730,8 @@ func (c *Client) HeadOpenapi(ctx context.Context) (*HeadOpenapiResponse, error) 
 
 	result := &HeadOpenapiResponse{StatusCode: res.StatusCode, Raw: res}
 	switch res.StatusCode {
-	case 200:
+	case 200, 304, 400:
 		_ = res.Body.Close()
-		result.Status200 = true
-		return result, nil
-	case 304:
-		_ = res.Body.Close()
-		result.Status304 = true
-		return result, nil
-	case 400:
-		_ = res.Body.Close()
-		result.Status400 = true
 		return result, nil
 	default:
 		rawBody, readErr := io.ReadAll(io.LimitReader(res.Body, maxDiagnosticBodyBytes))
@@ -771,7 +757,6 @@ type CreateCLIAuthorizationResponse struct {
 	Raw        *http.Response
 	Status201  *CreatedCLIAuthorization
 	Status400  *ValidationErr
-	Status401  bool
 }
 
 func (c *Client) NewCreateCLIAuthorizationRequest(ctx context.Context, params CreateCLIAuthorizationParams) (*http.Request, error) {
@@ -784,20 +769,17 @@ func (c *Client) NewCreateCLIAuthorizationRequest(ctx context.Context, params Cr
 	if err != nil {
 		return nil, fmt.Errorf("build CreateCLIAuthorization URL: %w", err)
 	}
-	var requestBody io.Reader
 	encodedBody, err := json.Marshal(params.Body)
 	if err != nil {
 		return nil, fmt.Errorf("encode CreateCLIAuthorization JSON body: %w", err)
 	}
-	requestBody = bytes.NewReader(encodedBody)
+	requestBody := bytes.NewReader(encodedBody)
 	req, err := http.NewRequestWithContext(ctx, "POST", endpoint.String(), requestBody)
 	if err != nil {
 		return nil, fmt.Errorf("build CreateCLIAuthorization request: %w", err)
 	}
 	req.Header.Set("Accept", "application/json")
-	if requestBody != nil {
-		req.Header.Set("Content-Type", "application/json")
-	}
+	req.Header.Set("Content-Type", "application/json")
 	return req, nil
 }
 
@@ -845,7 +827,6 @@ func (c *Client) CreateCLIAuthorization(ctx context.Context, params CreateCLIAut
 		return result, nil
 	case 401:
 		_ = res.Body.Close()
-		result.Status401 = true
 		return result, nil
 	default:
 		rawBody, readErr := io.ReadAll(io.LimitReader(res.Body, maxDiagnosticBodyBytes))
@@ -871,7 +852,6 @@ type CliAuthorizationEventsResponse struct {
 	Raw        *http.Response
 	Status200  *SSEStream[CLIAuthorizationEvent]
 	Status400  *ValidationErr
-	Status404  bool
 }
 
 func (c *Client) NewCliAuthorizationEventsRequest(ctx context.Context, params CliAuthorizationEventsParams) (*http.Request, error) {
@@ -963,7 +943,6 @@ func (c *Client) CliAuthorizationEvents(ctx context.Context, params CliAuthoriza
 		return result, nil
 	case 404:
 		_ = res.Body.Close()
-		result.Status404 = true
 		return result, nil
 	default:
 		rawBody, readErr := io.ReadAll(io.LimitReader(res.Body, maxDiagnosticBodyBytes))
@@ -989,9 +968,6 @@ type EpisodeDeletionEventsResponse struct {
 	Raw        *http.Response
 	Status200  *SSEStream[EpisodeDeletionEvent]
 	Status400  *ValidationErr
-	Status401  bool
-	Status403  bool
-	Status404  bool
 }
 
 func (c *Client) NewEpisodeDeletionEventsRequest(ctx context.Context, params EpisodeDeletionEventsParams) (*http.Request, error) {
@@ -1081,17 +1057,8 @@ func (c *Client) EpisodeDeletionEvents(ctx context.Context, params EpisodeDeleti
 		_ = res.Body.Close()
 		result.Status400 = &decoded
 		return result, nil
-	case 401:
+	case 401, 403, 404:
 		_ = res.Body.Close()
-		result.Status401 = true
-		return result, nil
-	case 403:
-		_ = res.Body.Close()
-		result.Status403 = true
-		return result, nil
-	case 404:
-		_ = res.Body.Close()
-		result.Status404 = true
 		return result, nil
 	default:
 		rawBody, readErr := io.ReadAll(io.LimitReader(res.Body, maxDiagnosticBodyBytes))
@@ -1118,11 +1085,6 @@ type CreateEpisodeUploadSessionResponse struct {
 	Status200  *EpisodeUploadSession
 	Status201  *EpisodeUploadSession
 	Status400  *ValidationErr
-	Status401  bool
-	Status403  bool
-	Status404  bool
-	Status409  bool
-	Status410  bool
 }
 
 func (c *Client) NewCreateEpisodeUploadSessionRequest(ctx context.Context, params CreateEpisodeUploadSessionParams) (*http.Request, error) {
@@ -1135,20 +1097,17 @@ func (c *Client) NewCreateEpisodeUploadSessionRequest(ctx context.Context, param
 	if err != nil {
 		return nil, fmt.Errorf("build CreateEpisodeUploadSession URL: %w", err)
 	}
-	var requestBody io.Reader
 	encodedBody, err := json.Marshal(params.Body)
 	if err != nil {
 		return nil, fmt.Errorf("encode CreateEpisodeUploadSession JSON body: %w", err)
 	}
-	requestBody = bytes.NewReader(encodedBody)
+	requestBody := bytes.NewReader(encodedBody)
 	req, err := http.NewRequestWithContext(ctx, "POST", endpoint.String(), requestBody)
 	if err != nil {
 		return nil, fmt.Errorf("build CreateEpisodeUploadSession request: %w", err)
 	}
 	req.Header.Set("Accept", "application/json")
-	if requestBody != nil {
-		req.Header.Set("Content-Type", "application/json")
-	}
+	req.Header.Set("Content-Type", "application/json")
 	return req, nil
 }
 
@@ -1203,25 +1162,8 @@ func (c *Client) CreateEpisodeUploadSession(ctx context.Context, params CreateEp
 		_ = res.Body.Close()
 		result.Status400 = &decoded
 		return result, nil
-	case 401:
+	case 401, 403, 404, 409, 410:
 		_ = res.Body.Close()
-		result.Status401 = true
-		return result, nil
-	case 403:
-		_ = res.Body.Close()
-		result.Status403 = true
-		return result, nil
-	case 404:
-		_ = res.Body.Close()
-		result.Status404 = true
-		return result, nil
-	case 409:
-		_ = res.Body.Close()
-		result.Status409 = true
-		return result, nil
-	case 410:
-		_ = res.Body.Close()
-		result.Status410 = true
 		return result, nil
 	default:
 		rawBody, readErr := io.ReadAll(io.LimitReader(res.Body, maxDiagnosticBodyBytes))
@@ -1247,9 +1189,6 @@ type GetEpisodeUploadSessionResponse struct {
 	Raw        *http.Response
 	Status200  *EpisodeUploadSession
 	Status400  *ValidationErr
-	Status401  bool
-	Status404  bool
-	Status410  bool
 }
 
 func (c *Client) NewGetEpisodeUploadSessionRequest(ctx context.Context, params GetEpisodeUploadSessionParams) (*http.Request, error) {
@@ -1316,17 +1255,8 @@ func (c *Client) GetEpisodeUploadSession(ctx context.Context, params GetEpisodeU
 		_ = res.Body.Close()
 		result.Status400 = &decoded
 		return result, nil
-	case 401:
+	case 401, 404, 410:
 		_ = res.Body.Close()
-		result.Status401 = true
-		return result, nil
-	case 404:
-		_ = res.Body.Close()
-		result.Status404 = true
-		return result, nil
-	case 410:
-		_ = res.Body.Close()
-		result.Status410 = true
 		return result, nil
 	default:
 		rawBody, readErr := io.ReadAll(io.LimitReader(res.Body, maxDiagnosticBodyBytes))
@@ -1353,10 +1283,6 @@ type UpdateEpisodeUploadSessionResponse struct {
 	Raw        *http.Response
 	Status200  *EpisodeUploadSession
 	Status400  *ValidationErr
-	Status401  bool
-	Status404  bool
-	Status409  bool
-	Status410  bool
 }
 
 func (c *Client) NewUpdateEpisodeUploadSessionRequest(ctx context.Context, params UpdateEpisodeUploadSessionParams) (*http.Request, error) {
@@ -1373,20 +1299,17 @@ func (c *Client) NewUpdateEpisodeUploadSessionRequest(ctx context.Context, param
 	if err != nil {
 		return nil, fmt.Errorf("build UpdateEpisodeUploadSession URL: %w", err)
 	}
-	var requestBody io.Reader
 	encodedBody, err := json.Marshal(params.Body)
 	if err != nil {
 		return nil, fmt.Errorf("encode UpdateEpisodeUploadSession JSON body: %w", err)
 	}
-	requestBody = bytes.NewReader(encodedBody)
+	requestBody := bytes.NewReader(encodedBody)
 	req, err := http.NewRequestWithContext(ctx, "PUT", endpoint.String(), requestBody)
 	if err != nil {
 		return nil, fmt.Errorf("build UpdateEpisodeUploadSession request: %w", err)
 	}
 	req.Header.Set("Accept", "application/json")
-	if requestBody != nil {
-		req.Header.Set("Content-Type", "application/json")
-	}
+	req.Header.Set("Content-Type", "application/json")
 	return req, nil
 }
 
@@ -1432,21 +1355,8 @@ func (c *Client) UpdateEpisodeUploadSession(ctx context.Context, params UpdateEp
 		_ = res.Body.Close()
 		result.Status400 = &decoded
 		return result, nil
-	case 401:
+	case 401, 404, 409, 410:
 		_ = res.Body.Close()
-		result.Status401 = true
-		return result, nil
-	case 404:
-		_ = res.Body.Close()
-		result.Status404 = true
-		return result, nil
-	case 409:
-		_ = res.Body.Close()
-		result.Status409 = true
-		return result, nil
-	case 410:
-		_ = res.Body.Close()
-		result.Status410 = true
 		return result, nil
 	default:
 		rawBody, readErr := io.ReadAll(io.LimitReader(res.Body, maxDiagnosticBodyBytes))
@@ -1470,11 +1380,7 @@ type CancelEpisodeUploadSessionParams struct {
 type CancelEpisodeUploadSessionResponse struct {
 	StatusCode int
 	Raw        *http.Response
-	Status204  bool
 	Status400  *ValidationErr
-	Status401  bool
-	Status404  bool
-	Status409  bool
 }
 
 func (c *Client) NewCancelEpisodeUploadSessionRequest(ctx context.Context, params CancelEpisodeUploadSessionParams) (*http.Request, error) {
@@ -1523,10 +1429,6 @@ func (c *Client) CancelEpisodeUploadSession(ctx context.Context, params CancelEp
 
 	result := &CancelEpisodeUploadSessionResponse{StatusCode: res.StatusCode, Raw: res}
 	switch res.StatusCode {
-	case 204:
-		_ = res.Body.Close()
-		result.Status204 = true
-		return result, nil
 	case 400:
 		var decoded ValidationErr
 		if err := json.NewDecoder(io.LimitReader(res.Body, maxDecodedBodyBytes)).Decode(&decoded); err != nil {
@@ -1536,17 +1438,8 @@ func (c *Client) CancelEpisodeUploadSession(ctx context.Context, params CancelEp
 		_ = res.Body.Close()
 		result.Status400 = &decoded
 		return result, nil
-	case 401:
+	case 204, 401, 404, 409:
 		_ = res.Body.Close()
-		result.Status401 = true
-		return result, nil
-	case 404:
-		_ = res.Body.Close()
-		result.Status404 = true
-		return result, nil
-	case 409:
-		_ = res.Body.Close()
-		result.Status409 = true
 		return result, nil
 	default:
 		rawBody, readErr := io.ReadAll(io.LimitReader(res.Body, maxDiagnosticBodyBytes))
@@ -1574,11 +1467,6 @@ type CompleteEpisodeUploadSessionResponse struct {
 	Status200  *Episode
 	Status201  *Episode
 	Status400  *ValidationErr
-	Status401  bool
-	Status403  bool
-	Status404  bool
-	Status409  bool
-	Status410  bool
 }
 
 func (c *Client) NewCompleteEpisodeUploadSessionRequest(ctx context.Context, params CompleteEpisodeUploadSessionParams) (*http.Request, error) {
@@ -1595,20 +1483,17 @@ func (c *Client) NewCompleteEpisodeUploadSessionRequest(ctx context.Context, par
 	if err != nil {
 		return nil, fmt.Errorf("build CompleteEpisodeUploadSession URL: %w", err)
 	}
-	var requestBody io.Reader
 	encodedBody, err := json.Marshal(params.Body)
 	if err != nil {
 		return nil, fmt.Errorf("encode CompleteEpisodeUploadSession JSON body: %w", err)
 	}
-	requestBody = bytes.NewReader(encodedBody)
+	requestBody := bytes.NewReader(encodedBody)
 	req, err := http.NewRequestWithContext(ctx, "POST", endpoint.String(), requestBody)
 	if err != nil {
 		return nil, fmt.Errorf("build CompleteEpisodeUploadSession request: %w", err)
 	}
 	req.Header.Set("Accept", "application/json")
-	if requestBody != nil {
-		req.Header.Set("Content-Type", "application/json")
-	}
+	req.Header.Set("Content-Type", "application/json")
 	return req, nil
 }
 
@@ -1663,25 +1548,8 @@ func (c *Client) CompleteEpisodeUploadSession(ctx context.Context, params Comple
 		_ = res.Body.Close()
 		result.Status400 = &decoded
 		return result, nil
-	case 401:
+	case 401, 403, 404, 409, 410:
 		_ = res.Body.Close()
-		result.Status401 = true
-		return result, nil
-	case 403:
-		_ = res.Body.Close()
-		result.Status403 = true
-		return result, nil
-	case 404:
-		_ = res.Body.Close()
-		result.Status404 = true
-		return result, nil
-	case 409:
-		_ = res.Body.Close()
-		result.Status409 = true
-		return result, nil
-	case 410:
-		_ = res.Body.Close()
-		result.Status410 = true
 		return result, nil
 	default:
 		rawBody, readErr := io.ReadAll(io.LimitReader(res.Body, maxDiagnosticBodyBytes))
@@ -1707,8 +1575,6 @@ type EpisodeUploadSessionEventsResponse struct {
 	Raw        *http.Response
 	Status200  *SSEStream[EpisodeProcessingEvent]
 	Status400  *ValidationErr
-	Status401  bool
-	Status404  bool
 }
 
 func (c *Client) NewEpisodeUploadSessionEventsRequest(ctx context.Context, params EpisodeUploadSessionEventsParams) (*http.Request, error) {
@@ -1798,13 +1664,8 @@ func (c *Client) EpisodeUploadSessionEvents(ctx context.Context, params EpisodeU
 		_ = res.Body.Close()
 		result.Status400 = &decoded
 		return result, nil
-	case 401:
+	case 401, 404:
 		_ = res.Body.Close()
-		result.Status401 = true
-		return result, nil
-	case 404:
-		_ = res.Body.Close()
-		result.Status404 = true
 		return result, nil
 	default:
 		rawBody, readErr := io.ReadAll(io.LimitReader(res.Body, maxDiagnosticBodyBytes))
@@ -1831,11 +1692,6 @@ type PresignEpisodeUploadSessionPartsResponse struct {
 	Raw        *http.Response
 	Status201  *PresignedEpisodeUploadParts
 	Status400  *ValidationErr
-	Status401  bool
-	Status402  bool
-	Status404  bool
-	Status409  bool
-	Status410  bool
 }
 
 func (c *Client) NewPresignEpisodeUploadSessionPartsRequest(ctx context.Context, params PresignEpisodeUploadSessionPartsParams) (*http.Request, error) {
@@ -1852,20 +1708,17 @@ func (c *Client) NewPresignEpisodeUploadSessionPartsRequest(ctx context.Context,
 	if err != nil {
 		return nil, fmt.Errorf("build PresignEpisodeUploadSessionParts URL: %w", err)
 	}
-	var requestBody io.Reader
 	encodedBody, err := json.Marshal(params.Body)
 	if err != nil {
 		return nil, fmt.Errorf("encode PresignEpisodeUploadSessionParts JSON body: %w", err)
 	}
-	requestBody = bytes.NewReader(encodedBody)
+	requestBody := bytes.NewReader(encodedBody)
 	req, err := http.NewRequestWithContext(ctx, "POST", endpoint.String(), requestBody)
 	if err != nil {
 		return nil, fmt.Errorf("build PresignEpisodeUploadSessionParts request: %w", err)
 	}
 	req.Header.Set("Accept", "application/json")
-	if requestBody != nil {
-		req.Header.Set("Content-Type", "application/json")
-	}
+	req.Header.Set("Content-Type", "application/json")
 	return req, nil
 }
 
@@ -1911,25 +1764,8 @@ func (c *Client) PresignEpisodeUploadSessionParts(ctx context.Context, params Pr
 		_ = res.Body.Close()
 		result.Status400 = &decoded
 		return result, nil
-	case 401:
+	case 401, 402, 404, 409, 410:
 		_ = res.Body.Close()
-		result.Status401 = true
-		return result, nil
-	case 402:
-		_ = res.Body.Close()
-		result.Status402 = true
-		return result, nil
-	case 404:
-		_ = res.Body.Close()
-		result.Status404 = true
-		return result, nil
-	case 409:
-		_ = res.Body.Close()
-		result.Status409 = true
-		return result, nil
-	case 410:
-		_ = res.Body.Close()
-		result.Status410 = true
 		return result, nil
 	default:
 		rawBody, readErr := io.ReadAll(io.LimitReader(res.Body, maxDiagnosticBodyBytes))
@@ -1955,9 +1791,6 @@ type CreateEpisodeDeletionResponse struct {
 	Raw        *http.Response
 	Status202  *CreatedPublicEpisodeDeletion
 	Status400  *ValidationErr
-	Status401  bool
-	Status403  bool
-	Status404  bool
 }
 
 func (c *Client) NewCreateEpisodeDeletionRequest(ctx context.Context, params CreateEpisodeDeletionParams) (*http.Request, error) {
@@ -2024,17 +1857,8 @@ func (c *Client) CreateEpisodeDeletion(ctx context.Context, params CreateEpisode
 		_ = res.Body.Close()
 		result.Status400 = &decoded
 		return result, nil
-	case 401:
+	case 401, 403, 404:
 		_ = res.Body.Close()
-		result.Status401 = true
-		return result, nil
-	case 403:
-		_ = res.Body.Close()
-		result.Status403 = true
-		return result, nil
-	case 404:
-		_ = res.Body.Close()
-		result.Status404 = true
 		return result, nil
 	default:
 		rawBody, readErr := io.ReadAll(io.LimitReader(res.Body, maxDiagnosticBodyBytes))
@@ -2059,11 +1883,6 @@ type CreateImageUploadPresignResponse struct {
 	StatusCode int
 	Raw        *http.Response
 	Status201  *CreatedImageUploadPresign
-	Status400  bool
-	Status401  bool
-	Status402  bool
-	Status403  bool
-	Status409  bool
 }
 
 func (c *Client) NewCreateImageUploadPresignRequest(ctx context.Context, params CreateImageUploadPresignParams) (*http.Request, error) {
@@ -2076,20 +1895,17 @@ func (c *Client) NewCreateImageUploadPresignRequest(ctx context.Context, params 
 	if err != nil {
 		return nil, fmt.Errorf("build CreateImageUploadPresign URL: %w", err)
 	}
-	var requestBody io.Reader
 	encodedBody, err := json.Marshal(params.Body)
 	if err != nil {
 		return nil, fmt.Errorf("encode CreateImageUploadPresign JSON body: %w", err)
 	}
-	requestBody = bytes.NewReader(encodedBody)
+	requestBody := bytes.NewReader(encodedBody)
 	req, err := http.NewRequestWithContext(ctx, "POST", endpoint.String(), requestBody)
 	if err != nil {
 		return nil, fmt.Errorf("build CreateImageUploadPresign request: %w", err)
 	}
 	req.Header.Set("Accept", "application/json")
-	if requestBody != nil {
-		req.Header.Set("Content-Type", "application/json")
-	}
+	req.Header.Set("Content-Type", "application/json")
 	return req, nil
 }
 
@@ -2126,25 +1942,8 @@ func (c *Client) CreateImageUploadPresign(ctx context.Context, params CreateImag
 		_ = res.Body.Close()
 		result.Status201 = &decoded
 		return result, nil
-	case 400:
+	case 400, 401, 402, 403, 409:
 		_ = res.Body.Close()
-		result.Status400 = true
-		return result, nil
-	case 401:
-		_ = res.Body.Close()
-		result.Status401 = true
-		return result, nil
-	case 402:
-		_ = res.Body.Close()
-		result.Status402 = true
-		return result, nil
-	case 403:
-		_ = res.Body.Close()
-		result.Status403 = true
-		return result, nil
-	case 409:
-		_ = res.Body.Close()
-		result.Status409 = true
 		return result, nil
 	default:
 		rawBody, readErr := io.ReadAll(io.LimitReader(res.Body, maxDiagnosticBodyBytes))
@@ -2170,11 +1969,6 @@ type CompleteImageUploadResponse struct {
 	StatusCode int
 	Raw        *http.Response
 	Status201  *ImageAsset
-	Status400  bool
-	Status401  bool
-	Status403  bool
-	Status404  bool
-	Status409  bool
 }
 
 func (c *Client) NewCompleteImageUploadRequest(ctx context.Context, params CompleteImageUploadParams) (*http.Request, error) {
@@ -2191,20 +1985,17 @@ func (c *Client) NewCompleteImageUploadRequest(ctx context.Context, params Compl
 	if err != nil {
 		return nil, fmt.Errorf("build CompleteImageUpload URL: %w", err)
 	}
-	var requestBody io.Reader
 	encodedBody, err := json.Marshal(params.Body)
 	if err != nil {
 		return nil, fmt.Errorf("encode CompleteImageUpload JSON body: %w", err)
 	}
-	requestBody = bytes.NewReader(encodedBody)
+	requestBody := bytes.NewReader(encodedBody)
 	req, err := http.NewRequestWithContext(ctx, "POST", endpoint.String(), requestBody)
 	if err != nil {
 		return nil, fmt.Errorf("build CompleteImageUpload request: %w", err)
 	}
 	req.Header.Set("Accept", "application/json")
-	if requestBody != nil {
-		req.Header.Set("Content-Type", "application/json")
-	}
+	req.Header.Set("Content-Type", "application/json")
 	return req, nil
 }
 
@@ -2241,25 +2032,8 @@ func (c *Client) CompleteImageUpload(ctx context.Context, params CompleteImageUp
 		_ = res.Body.Close()
 		result.Status201 = &decoded
 		return result, nil
-	case 400:
+	case 400, 401, 403, 404, 409:
 		_ = res.Body.Close()
-		result.Status400 = true
-		return result, nil
-	case 401:
-		_ = res.Body.Close()
-		result.Status401 = true
-		return result, nil
-	case 403:
-		_ = res.Body.Close()
-		result.Status403 = true
-		return result, nil
-	case 404:
-		_ = res.Body.Close()
-		result.Status404 = true
-		return result, nil
-	case 409:
-		_ = res.Body.Close()
-		result.Status409 = true
 		return result, nil
 	default:
 		rawBody, readErr := io.ReadAll(io.LimitReader(res.Body, maxDiagnosticBodyBytes))
@@ -2285,10 +2059,7 @@ type ImportRSSResponse struct {
 	Raw        *http.Response
 	Status202  *CreatedPublicRSSImport
 	Status400  *ValidationErr
-	Status401  bool
 	Status402  *RSSImportEntitlementError
-	Status403  bool
-	Status409  bool
 }
 
 func (c *Client) NewImportRSSRequest(ctx context.Context, params ImportRSSParams) (*http.Request, error) {
@@ -2301,20 +2072,17 @@ func (c *Client) NewImportRSSRequest(ctx context.Context, params ImportRSSParams
 	if err != nil {
 		return nil, fmt.Errorf("build ImportRSS URL: %w", err)
 	}
-	var requestBody io.Reader
 	encodedBody, err := json.Marshal(params.Body)
 	if err != nil {
 		return nil, fmt.Errorf("encode ImportRSS JSON body: %w", err)
 	}
-	requestBody = bytes.NewReader(encodedBody)
+	requestBody := bytes.NewReader(encodedBody)
 	req, err := http.NewRequestWithContext(ctx, "POST", endpoint.String(), requestBody)
 	if err != nil {
 		return nil, fmt.Errorf("build ImportRSS request: %w", err)
 	}
 	req.Header.Set("Accept", "application/json")
-	if requestBody != nil {
-		req.Header.Set("Content-Type", "application/json")
-	}
+	req.Header.Set("Content-Type", "application/json")
 	return req, nil
 }
 
@@ -2360,10 +2128,6 @@ func (c *Client) ImportRSS(ctx context.Context, params ImportRSSParams) (*Import
 		_ = res.Body.Close()
 		result.Status400 = &decoded
 		return result, nil
-	case 401:
-		_ = res.Body.Close()
-		result.Status401 = true
-		return result, nil
 	case 402:
 		var decoded RSSImportEntitlementError
 		if err := json.NewDecoder(io.LimitReader(res.Body, maxDecodedBodyBytes)).Decode(&decoded); err != nil {
@@ -2373,13 +2137,8 @@ func (c *Client) ImportRSS(ctx context.Context, params ImportRSSParams) (*Import
 		_ = res.Body.Close()
 		result.Status402 = &decoded
 		return result, nil
-	case 403:
+	case 401, 403, 409:
 		_ = res.Body.Close()
-		result.Status403 = true
-		return result, nil
-	case 409:
-		_ = res.Body.Close()
-		result.Status409 = true
 		return result, nil
 	default:
 		rawBody, readErr := io.ReadAll(io.LimitReader(res.Body, maxDiagnosticBodyBytes))
@@ -2405,9 +2164,6 @@ type ImportRSSRunEventsResponse struct {
 	Raw        *http.Response
 	Status200  *SSEStream[PublicRSSImportEvent]
 	Status400  *ValidationErr
-	Status401  bool
-	Status403  bool
-	Status404  bool
 }
 
 func (c *Client) NewImportRSSRunEventsRequest(ctx context.Context, params ImportRSSRunEventsParams) (*http.Request, error) {
@@ -2497,17 +2253,8 @@ func (c *Client) ImportRSSRunEvents(ctx context.Context, params ImportRSSRunEven
 		_ = res.Body.Close()
 		result.Status400 = &decoded
 		return result, nil
-	case 401:
+	case 401, 403, 404:
 		_ = res.Body.Close()
-		result.Status401 = true
-		return result, nil
-	case 403:
-		_ = res.Body.Close()
-		result.Status403 = true
-		return result, nil
-	case 404:
-		_ = res.Body.Close()
-		result.Status404 = true
 		return result, nil
 	default:
 		rawBody, readErr := io.ReadAll(io.LimitReader(res.Body, maxDiagnosticBodyBytes))
@@ -2533,9 +2280,6 @@ type ShowDeletionEventsResponse struct {
 	Raw        *http.Response
 	Status200  *SSEStream[ShowDeletionEvent]
 	Status400  *ValidationErr
-	Status401  bool
-	Status403  bool
-	Status404  bool
 }
 
 func (c *Client) NewShowDeletionEventsRequest(ctx context.Context, params ShowDeletionEventsParams) (*http.Request, error) {
@@ -2625,17 +2369,8 @@ func (c *Client) ShowDeletionEvents(ctx context.Context, params ShowDeletionEven
 		_ = res.Body.Close()
 		result.Status400 = &decoded
 		return result, nil
-	case 401:
+	case 401, 403, 404:
 		_ = res.Body.Close()
-		result.Status401 = true
-		return result, nil
-	case 403:
-		_ = res.Body.Close()
-		result.Status403 = true
-		return result, nil
-	case 404:
-		_ = res.Body.Close()
-		result.Status404 = true
 		return result, nil
 	default:
 		rawBody, readErr := io.ReadAll(io.LimitReader(res.Body, maxDiagnosticBodyBytes))
@@ -2657,7 +2392,6 @@ type ListShowsResponse struct {
 	Raw        *http.Response
 	Status200  *[]Show
 	Status400  *ValidationErr
-	Status401  bool
 }
 
 func (c *Client) NewListShowsRequest(ctx context.Context) (*http.Request, error) {
@@ -2722,7 +2456,6 @@ func (c *Client) ListShows(ctx context.Context) (*ListShowsResponse, error) {
 		return result, nil
 	case 401:
 		_ = res.Body.Close()
-		result.Status401 = true
 		return result, nil
 	default:
 		rawBody, readErr := io.ReadAll(io.LimitReader(res.Body, maxDiagnosticBodyBytes))
@@ -2748,9 +2481,6 @@ type CreateShowResponse struct {
 	Raw        *http.Response
 	Status201  *Show
 	Status400  *ValidationErr
-	Status401  bool
-	Status403  bool
-	Status409  bool
 }
 
 func (c *Client) NewCreateShowRequest(ctx context.Context, params CreateShowParams) (*http.Request, error) {
@@ -2763,20 +2493,17 @@ func (c *Client) NewCreateShowRequest(ctx context.Context, params CreateShowPara
 	if err != nil {
 		return nil, fmt.Errorf("build CreateShow URL: %w", err)
 	}
-	var requestBody io.Reader
 	encodedBody, err := json.Marshal(params.Body)
 	if err != nil {
 		return nil, fmt.Errorf("encode CreateShow JSON body: %w", err)
 	}
-	requestBody = bytes.NewReader(encodedBody)
+	requestBody := bytes.NewReader(encodedBody)
 	req, err := http.NewRequestWithContext(ctx, "POST", endpoint.String(), requestBody)
 	if err != nil {
 		return nil, fmt.Errorf("build CreateShow request: %w", err)
 	}
 	req.Header.Set("Accept", "application/json")
-	if requestBody != nil {
-		req.Header.Set("Content-Type", "application/json")
-	}
+	req.Header.Set("Content-Type", "application/json")
 	return req, nil
 }
 
@@ -2822,17 +2549,8 @@ func (c *Client) CreateShow(ctx context.Context, params CreateShowParams) (*Crea
 		_ = res.Body.Close()
 		result.Status400 = &decoded
 		return result, nil
-	case 401:
+	case 401, 403, 409:
 		_ = res.Body.Close()
-		result.Status401 = true
-		return result, nil
-	case 403:
-		_ = res.Body.Close()
-		result.Status403 = true
-		return result, nil
-	case 409:
-		_ = res.Body.Close()
-		result.Status409 = true
 		return result, nil
 	default:
 		rawBody, readErr := io.ReadAll(io.LimitReader(res.Body, maxDiagnosticBodyBytes))
@@ -2858,9 +2576,6 @@ type CreateShowDeletionResponse struct {
 	Raw        *http.Response
 	Status202  *CreatedPublicShowDeletion
 	Status400  *ValidationErr
-	Status401  bool
-	Status403  bool
-	Status404  bool
 }
 
 func (c *Client) NewCreateShowDeletionRequest(ctx context.Context, params CreateShowDeletionParams) (*http.Request, error) {
@@ -2927,17 +2642,8 @@ func (c *Client) CreateShowDeletion(ctx context.Context, params CreateShowDeleti
 		_ = res.Body.Close()
 		result.Status400 = &decoded
 		return result, nil
-	case 401:
+	case 401, 403, 404:
 		_ = res.Body.Close()
-		result.Status401 = true
-		return result, nil
-	case 403:
-		_ = res.Body.Close()
-		result.Status403 = true
-		return result, nil
-	case 404:
-		_ = res.Body.Close()
-		result.Status404 = true
 		return result, nil
 	default:
 		rawBody, readErr := io.ReadAll(io.LimitReader(res.Body, maxDiagnosticBodyBytes))
@@ -2965,9 +2671,6 @@ type ListEpisodesResponse struct {
 	Raw        *http.Response
 	Status200  *EpisodePage
 	Status400  *ValidationErr
-	Status401  bool
-	Status403  bool
-	Status404  bool
 }
 
 func (c *Client) NewListEpisodesRequest(ctx context.Context, params ListEpisodesParams) (*http.Request, error) {
@@ -3042,17 +2745,8 @@ func (c *Client) ListEpisodes(ctx context.Context, params ListEpisodesParams) (*
 		_ = res.Body.Close()
 		result.Status400 = &decoded
 		return result, nil
-	case 401:
+	case 401, 403, 404:
 		_ = res.Body.Close()
-		result.Status401 = true
-		return result, nil
-	case 403:
-		_ = res.Body.Close()
-		result.Status403 = true
-		return result, nil
-	case 404:
-		_ = res.Body.Close()
-		result.Status404 = true
 		return result, nil
 	default:
 		rawBody, readErr := io.ReadAll(io.LimitReader(res.Body, maxDiagnosticBodyBytes))
@@ -3079,10 +2773,6 @@ type CreateShowInvitationResponse struct {
 	Raw        *http.Response
 	Status201  *PendingShowInvitation
 	Status400  *ValidationErr
-	Status401  bool
-	Status403  bool
-	Status404  bool
-	Status409  bool
 }
 
 func (c *Client) NewCreateShowInvitationRequest(ctx context.Context, params CreateShowInvitationParams) (*http.Request, error) {
@@ -3099,20 +2789,17 @@ func (c *Client) NewCreateShowInvitationRequest(ctx context.Context, params Crea
 	if err != nil {
 		return nil, fmt.Errorf("build CreateShowInvitation URL: %w", err)
 	}
-	var requestBody io.Reader
 	encodedBody, err := json.Marshal(params.Body)
 	if err != nil {
 		return nil, fmt.Errorf("encode CreateShowInvitation JSON body: %w", err)
 	}
-	requestBody = bytes.NewReader(encodedBody)
+	requestBody := bytes.NewReader(encodedBody)
 	req, err := http.NewRequestWithContext(ctx, "POST", endpoint.String(), requestBody)
 	if err != nil {
 		return nil, fmt.Errorf("build CreateShowInvitation request: %w", err)
 	}
 	req.Header.Set("Accept", "application/json")
-	if requestBody != nil {
-		req.Header.Set("Content-Type", "application/json")
-	}
+	req.Header.Set("Content-Type", "application/json")
 	return req, nil
 }
 
@@ -3158,21 +2845,8 @@ func (c *Client) CreateShowInvitation(ctx context.Context, params CreateShowInvi
 		_ = res.Body.Close()
 		result.Status400 = &decoded
 		return result, nil
-	case 401:
+	case 401, 403, 404, 409:
 		_ = res.Body.Close()
-		result.Status401 = true
-		return result, nil
-	case 403:
-		_ = res.Body.Close()
-		result.Status403 = true
-		return result, nil
-	case 404:
-		_ = res.Body.Close()
-		result.Status404 = true
-		return result, nil
-	case 409:
-		_ = res.Body.Close()
-		result.Status409 = true
 		return result, nil
 	default:
 		rawBody, readErr := io.ReadAll(io.LimitReader(res.Body, maxDiagnosticBodyBytes))
@@ -3200,9 +2874,6 @@ type UpdateShowInvitationRoleResponse struct {
 	Raw        *http.Response
 	Status200  *PendingShowInvitation
 	Status400  *ValidationErr
-	Status401  bool
-	Status403  bool
-	Status404  bool
 }
 
 func (c *Client) NewUpdateShowInvitationRoleRequest(ctx context.Context, params UpdateShowInvitationRoleParams) (*http.Request, error) {
@@ -3223,20 +2894,17 @@ func (c *Client) NewUpdateShowInvitationRoleRequest(ctx context.Context, params 
 	if err != nil {
 		return nil, fmt.Errorf("build UpdateShowInvitationRole URL: %w", err)
 	}
-	var requestBody io.Reader
 	encodedBody, err := json.Marshal(params.Body)
 	if err != nil {
 		return nil, fmt.Errorf("encode UpdateShowInvitationRole JSON body: %w", err)
 	}
-	requestBody = bytes.NewReader(encodedBody)
+	requestBody := bytes.NewReader(encodedBody)
 	req, err := http.NewRequestWithContext(ctx, "PUT", endpoint.String(), requestBody)
 	if err != nil {
 		return nil, fmt.Errorf("build UpdateShowInvitationRole request: %w", err)
 	}
 	req.Header.Set("Accept", "application/json")
-	if requestBody != nil {
-		req.Header.Set("Content-Type", "application/json")
-	}
+	req.Header.Set("Content-Type", "application/json")
 	return req, nil
 }
 
@@ -3282,17 +2950,8 @@ func (c *Client) UpdateShowInvitationRole(ctx context.Context, params UpdateShow
 		_ = res.Body.Close()
 		result.Status400 = &decoded
 		return result, nil
-	case 401:
+	case 401, 403, 404:
 		_ = res.Body.Close()
-		result.Status401 = true
-		return result, nil
-	case 403:
-		_ = res.Body.Close()
-		result.Status403 = true
-		return result, nil
-	case 404:
-		_ = res.Body.Close()
-		result.Status404 = true
 		return result, nil
 	default:
 		rawBody, readErr := io.ReadAll(io.LimitReader(res.Body, maxDiagnosticBodyBytes))
@@ -3317,11 +2976,7 @@ type RevokeShowInvitationParams struct {
 type RevokeShowInvitationResponse struct {
 	StatusCode int
 	Raw        *http.Response
-	Status204  bool
 	Status400  *ValidationErr
-	Status401  bool
-	Status403  bool
-	Status404  bool
 }
 
 func (c *Client) NewRevokeShowInvitationRequest(ctx context.Context, params RevokeShowInvitationParams) (*http.Request, error) {
@@ -3374,10 +3029,6 @@ func (c *Client) RevokeShowInvitation(ctx context.Context, params RevokeShowInvi
 
 	result := &RevokeShowInvitationResponse{StatusCode: res.StatusCode, Raw: res}
 	switch res.StatusCode {
-	case 204:
-		_ = res.Body.Close()
-		result.Status204 = true
-		return result, nil
 	case 400:
 		var decoded ValidationErr
 		if err := json.NewDecoder(io.LimitReader(res.Body, maxDecodedBodyBytes)).Decode(&decoded); err != nil {
@@ -3387,17 +3038,8 @@ func (c *Client) RevokeShowInvitation(ctx context.Context, params RevokeShowInvi
 		_ = res.Body.Close()
 		result.Status400 = &decoded
 		return result, nil
-	case 401:
+	case 204, 401, 403, 404:
 		_ = res.Body.Close()
-		result.Status401 = true
-		return result, nil
-	case 403:
-		_ = res.Body.Close()
-		result.Status403 = true
-		return result, nil
-	case 404:
-		_ = res.Body.Close()
-		result.Status404 = true
 		return result, nil
 	default:
 		rawBody, readErr := io.ReadAll(io.LimitReader(res.Body, maxDiagnosticBodyBytes))
@@ -3423,9 +3065,6 @@ type ListShowMembersResponse struct {
 	Raw        *http.Response
 	Status200  *ShowMemberCollection
 	Status400  *ValidationErr
-	Status401  bool
-	Status403  bool
-	Status404  bool
 }
 
 func (c *Client) NewListShowMembersRequest(ctx context.Context, params ListShowMembersParams) (*http.Request, error) {
@@ -3492,17 +3131,8 @@ func (c *Client) ListShowMembers(ctx context.Context, params ListShowMembersPara
 		_ = res.Body.Close()
 		result.Status400 = &decoded
 		return result, nil
-	case 401:
+	case 401, 403, 404:
 		_ = res.Body.Close()
-		result.Status401 = true
-		return result, nil
-	case 403:
-		_ = res.Body.Close()
-		result.Status403 = true
-		return result, nil
-	case 404:
-		_ = res.Body.Close()
-		result.Status404 = true
 		return result, nil
 	default:
 		rawBody, readErr := io.ReadAll(io.LimitReader(res.Body, maxDiagnosticBodyBytes))
@@ -3528,11 +3158,7 @@ type UpdateShowMemberRoleParams struct {
 type UpdateShowMemberRoleResponse struct {
 	StatusCode int
 	Raw        *http.Response
-	Status204  bool
 	Status400  *ValidationErr
-	Status401  bool
-	Status403  bool
-	Status404  bool
 }
 
 func (c *Client) NewUpdateShowMemberRoleRequest(ctx context.Context, params UpdateShowMemberRoleParams) (*http.Request, error) {
@@ -3553,20 +3179,17 @@ func (c *Client) NewUpdateShowMemberRoleRequest(ctx context.Context, params Upda
 	if err != nil {
 		return nil, fmt.Errorf("build UpdateShowMemberRole URL: %w", err)
 	}
-	var requestBody io.Reader
 	encodedBody, err := json.Marshal(params.Body)
 	if err != nil {
 		return nil, fmt.Errorf("encode UpdateShowMemberRole JSON body: %w", err)
 	}
-	requestBody = bytes.NewReader(encodedBody)
+	requestBody := bytes.NewReader(encodedBody)
 	req, err := http.NewRequestWithContext(ctx, "PUT", endpoint.String(), requestBody)
 	if err != nil {
 		return nil, fmt.Errorf("build UpdateShowMemberRole request: %w", err)
 	}
 	req.Header.Set("Accept", "application/json")
-	if requestBody != nil {
-		req.Header.Set("Content-Type", "application/json")
-	}
+	req.Header.Set("Content-Type", "application/json")
 	return req, nil
 }
 
@@ -3594,10 +3217,6 @@ func (c *Client) UpdateShowMemberRole(ctx context.Context, params UpdateShowMemb
 
 	result := &UpdateShowMemberRoleResponse{StatusCode: res.StatusCode, Raw: res}
 	switch res.StatusCode {
-	case 204:
-		_ = res.Body.Close()
-		result.Status204 = true
-		return result, nil
 	case 400:
 		var decoded ValidationErr
 		if err := json.NewDecoder(io.LimitReader(res.Body, maxDecodedBodyBytes)).Decode(&decoded); err != nil {
@@ -3607,17 +3226,8 @@ func (c *Client) UpdateShowMemberRole(ctx context.Context, params UpdateShowMemb
 		_ = res.Body.Close()
 		result.Status400 = &decoded
 		return result, nil
-	case 401:
+	case 204, 401, 403, 404:
 		_ = res.Body.Close()
-		result.Status401 = true
-		return result, nil
-	case 403:
-		_ = res.Body.Close()
-		result.Status403 = true
-		return result, nil
-	case 404:
-		_ = res.Body.Close()
-		result.Status404 = true
 		return result, nil
 	default:
 		rawBody, readErr := io.ReadAll(io.LimitReader(res.Body, maxDiagnosticBodyBytes))
@@ -3642,11 +3252,7 @@ type RemoveShowMemberParams struct {
 type RemoveShowMemberResponse struct {
 	StatusCode int
 	Raw        *http.Response
-	Status204  bool
 	Status400  *ValidationErr
-	Status401  bool
-	Status403  bool
-	Status404  bool
 }
 
 func (c *Client) NewRemoveShowMemberRequest(ctx context.Context, params RemoveShowMemberParams) (*http.Request, error) {
@@ -3699,10 +3305,6 @@ func (c *Client) RemoveShowMember(ctx context.Context, params RemoveShowMemberPa
 
 	result := &RemoveShowMemberResponse{StatusCode: res.StatusCode, Raw: res}
 	switch res.StatusCode {
-	case 204:
-		_ = res.Body.Close()
-		result.Status204 = true
-		return result, nil
 	case 400:
 		var decoded ValidationErr
 		if err := json.NewDecoder(io.LimitReader(res.Body, maxDecodedBodyBytes)).Decode(&decoded); err != nil {
@@ -3712,17 +3314,8 @@ func (c *Client) RemoveShowMember(ctx context.Context, params RemoveShowMemberPa
 		_ = res.Body.Close()
 		result.Status400 = &decoded
 		return result, nil
-	case 401:
+	case 204, 401, 403, 404:
 		_ = res.Body.Close()
-		result.Status401 = true
-		return result, nil
-	case 403:
-		_ = res.Body.Close()
-		result.Status403 = true
-		return result, nil
-	case 404:
-		_ = res.Body.Close()
-		result.Status404 = true
 		return result, nil
 	default:
 		rawBody, readErr := io.ReadAll(io.LimitReader(res.Body, maxDiagnosticBodyBytes))
@@ -3748,9 +3341,6 @@ type CreateTeamInvitationResponse struct {
 	Raw        *http.Response
 	Status201  *PendingTeamInvitation
 	Status400  *ValidationErr
-	Status401  bool
-	Status403  bool
-	Status409  bool
 }
 
 func (c *Client) NewCreateTeamInvitationRequest(ctx context.Context, params CreateTeamInvitationParams) (*http.Request, error) {
@@ -3763,20 +3353,17 @@ func (c *Client) NewCreateTeamInvitationRequest(ctx context.Context, params Crea
 	if err != nil {
 		return nil, fmt.Errorf("build CreateTeamInvitation URL: %w", err)
 	}
-	var requestBody io.Reader
 	encodedBody, err := json.Marshal(params.Body)
 	if err != nil {
 		return nil, fmt.Errorf("encode CreateTeamInvitation JSON body: %w", err)
 	}
-	requestBody = bytes.NewReader(encodedBody)
+	requestBody := bytes.NewReader(encodedBody)
 	req, err := http.NewRequestWithContext(ctx, "POST", endpoint.String(), requestBody)
 	if err != nil {
 		return nil, fmt.Errorf("build CreateTeamInvitation request: %w", err)
 	}
 	req.Header.Set("Accept", "application/json")
-	if requestBody != nil {
-		req.Header.Set("Content-Type", "application/json")
-	}
+	req.Header.Set("Content-Type", "application/json")
 	return req, nil
 }
 
@@ -3822,17 +3409,8 @@ func (c *Client) CreateTeamInvitation(ctx context.Context, params CreateTeamInvi
 		_ = res.Body.Close()
 		result.Status400 = &decoded
 		return result, nil
-	case 401:
+	case 401, 403, 409:
 		_ = res.Body.Close()
-		result.Status401 = true
-		return result, nil
-	case 403:
-		_ = res.Body.Close()
-		result.Status403 = true
-		return result, nil
-	case 409:
-		_ = res.Body.Close()
-		result.Status409 = true
 		return result, nil
 	default:
 		rawBody, readErr := io.ReadAll(io.LimitReader(res.Body, maxDiagnosticBodyBytes))
@@ -3859,9 +3437,6 @@ type UpdateTeamInvitationRoleResponse struct {
 	Raw        *http.Response
 	Status200  *PendingTeamInvitation
 	Status400  *ValidationErr
-	Status401  bool
-	Status403  bool
-	Status404  bool
 }
 
 func (c *Client) NewUpdateTeamInvitationRoleRequest(ctx context.Context, params UpdateTeamInvitationRoleParams) (*http.Request, error) {
@@ -3878,20 +3453,17 @@ func (c *Client) NewUpdateTeamInvitationRoleRequest(ctx context.Context, params 
 	if err != nil {
 		return nil, fmt.Errorf("build UpdateTeamInvitationRole URL: %w", err)
 	}
-	var requestBody io.Reader
 	encodedBody, err := json.Marshal(params.Body)
 	if err != nil {
 		return nil, fmt.Errorf("encode UpdateTeamInvitationRole JSON body: %w", err)
 	}
-	requestBody = bytes.NewReader(encodedBody)
+	requestBody := bytes.NewReader(encodedBody)
 	req, err := http.NewRequestWithContext(ctx, "PUT", endpoint.String(), requestBody)
 	if err != nil {
 		return nil, fmt.Errorf("build UpdateTeamInvitationRole request: %w", err)
 	}
 	req.Header.Set("Accept", "application/json")
-	if requestBody != nil {
-		req.Header.Set("Content-Type", "application/json")
-	}
+	req.Header.Set("Content-Type", "application/json")
 	return req, nil
 }
 
@@ -3937,17 +3509,8 @@ func (c *Client) UpdateTeamInvitationRole(ctx context.Context, params UpdateTeam
 		_ = res.Body.Close()
 		result.Status400 = &decoded
 		return result, nil
-	case 401:
+	case 401, 403, 404:
 		_ = res.Body.Close()
-		result.Status401 = true
-		return result, nil
-	case 403:
-		_ = res.Body.Close()
-		result.Status403 = true
-		return result, nil
-	case 404:
-		_ = res.Body.Close()
-		result.Status404 = true
 		return result, nil
 	default:
 		rawBody, readErr := io.ReadAll(io.LimitReader(res.Body, maxDiagnosticBodyBytes))
@@ -3971,11 +3534,7 @@ type RevokeTeamInvitationParams struct {
 type RevokeTeamInvitationResponse struct {
 	StatusCode int
 	Raw        *http.Response
-	Status204  bool
 	Status400  *ValidationErr
-	Status401  bool
-	Status403  bool
-	Status404  bool
 }
 
 func (c *Client) NewRevokeTeamInvitationRequest(ctx context.Context, params RevokeTeamInvitationParams) (*http.Request, error) {
@@ -4024,10 +3583,6 @@ func (c *Client) RevokeTeamInvitation(ctx context.Context, params RevokeTeamInvi
 
 	result := &RevokeTeamInvitationResponse{StatusCode: res.StatusCode, Raw: res}
 	switch res.StatusCode {
-	case 204:
-		_ = res.Body.Close()
-		result.Status204 = true
-		return result, nil
 	case 400:
 		var decoded ValidationErr
 		if err := json.NewDecoder(io.LimitReader(res.Body, maxDecodedBodyBytes)).Decode(&decoded); err != nil {
@@ -4037,17 +3592,8 @@ func (c *Client) RevokeTeamInvitation(ctx context.Context, params RevokeTeamInvi
 		_ = res.Body.Close()
 		result.Status400 = &decoded
 		return result, nil
-	case 401:
+	case 204, 401, 403, 404:
 		_ = res.Body.Close()
-		result.Status401 = true
-		return result, nil
-	case 403:
-		_ = res.Body.Close()
-		result.Status403 = true
-		return result, nil
-	case 404:
-		_ = res.Body.Close()
-		result.Status404 = true
 		return result, nil
 	default:
 		rawBody, readErr := io.ReadAll(io.LimitReader(res.Body, maxDiagnosticBodyBytes))
@@ -4069,8 +3615,6 @@ type ListTeamMembersResponse struct {
 	Raw        *http.Response
 	Status200  *TeamMemberCollection
 	Status400  *ValidationErr
-	Status401  bool
-	Status403  bool
 }
 
 func (c *Client) NewListTeamMembersRequest(ctx context.Context) (*http.Request, error) {
@@ -4133,13 +3677,8 @@ func (c *Client) ListTeamMembers(ctx context.Context) (*ListTeamMembersResponse,
 		_ = res.Body.Close()
 		result.Status400 = &decoded
 		return result, nil
-	case 401:
+	case 401, 403:
 		_ = res.Body.Close()
-		result.Status401 = true
-		return result, nil
-	case 403:
-		_ = res.Body.Close()
-		result.Status403 = true
 		return result, nil
 	default:
 		rawBody, readErr := io.ReadAll(io.LimitReader(res.Body, maxDiagnosticBodyBytes))
@@ -4164,11 +3703,7 @@ type UpdateTeamMemberRoleParams struct {
 type UpdateTeamMemberRoleResponse struct {
 	StatusCode int
 	Raw        *http.Response
-	Status204  bool
 	Status400  *ValidationErr
-	Status401  bool
-	Status403  bool
-	Status404  bool
 }
 
 func (c *Client) NewUpdateTeamMemberRoleRequest(ctx context.Context, params UpdateTeamMemberRoleParams) (*http.Request, error) {
@@ -4185,20 +3720,17 @@ func (c *Client) NewUpdateTeamMemberRoleRequest(ctx context.Context, params Upda
 	if err != nil {
 		return nil, fmt.Errorf("build UpdateTeamMemberRole URL: %w", err)
 	}
-	var requestBody io.Reader
 	encodedBody, err := json.Marshal(params.Body)
 	if err != nil {
 		return nil, fmt.Errorf("encode UpdateTeamMemberRole JSON body: %w", err)
 	}
-	requestBody = bytes.NewReader(encodedBody)
+	requestBody := bytes.NewReader(encodedBody)
 	req, err := http.NewRequestWithContext(ctx, "PUT", endpoint.String(), requestBody)
 	if err != nil {
 		return nil, fmt.Errorf("build UpdateTeamMemberRole request: %w", err)
 	}
 	req.Header.Set("Accept", "application/json")
-	if requestBody != nil {
-		req.Header.Set("Content-Type", "application/json")
-	}
+	req.Header.Set("Content-Type", "application/json")
 	return req, nil
 }
 
@@ -4226,10 +3758,6 @@ func (c *Client) UpdateTeamMemberRole(ctx context.Context, params UpdateTeamMemb
 
 	result := &UpdateTeamMemberRoleResponse{StatusCode: res.StatusCode, Raw: res}
 	switch res.StatusCode {
-	case 204:
-		_ = res.Body.Close()
-		result.Status204 = true
-		return result, nil
 	case 400:
 		var decoded ValidationErr
 		if err := json.NewDecoder(io.LimitReader(res.Body, maxDecodedBodyBytes)).Decode(&decoded); err != nil {
@@ -4239,17 +3767,8 @@ func (c *Client) UpdateTeamMemberRole(ctx context.Context, params UpdateTeamMemb
 		_ = res.Body.Close()
 		result.Status400 = &decoded
 		return result, nil
-	case 401:
+	case 204, 401, 403, 404:
 		_ = res.Body.Close()
-		result.Status401 = true
-		return result, nil
-	case 403:
-		_ = res.Body.Close()
-		result.Status403 = true
-		return result, nil
-	case 404:
-		_ = res.Body.Close()
-		result.Status404 = true
 		return result, nil
 	default:
 		rawBody, readErr := io.ReadAll(io.LimitReader(res.Body, maxDiagnosticBodyBytes))
@@ -4273,11 +3792,7 @@ type RemoveTeamMemberParams struct {
 type RemoveTeamMemberResponse struct {
 	StatusCode int
 	Raw        *http.Response
-	Status204  bool
 	Status400  *ValidationErr
-	Status401  bool
-	Status403  bool
-	Status404  bool
 }
 
 func (c *Client) NewRemoveTeamMemberRequest(ctx context.Context, params RemoveTeamMemberParams) (*http.Request, error) {
@@ -4326,10 +3841,6 @@ func (c *Client) RemoveTeamMember(ctx context.Context, params RemoveTeamMemberPa
 
 	result := &RemoveTeamMemberResponse{StatusCode: res.StatusCode, Raw: res}
 	switch res.StatusCode {
-	case 204:
-		_ = res.Body.Close()
-		result.Status204 = true
-		return result, nil
 	case 400:
 		var decoded ValidationErr
 		if err := json.NewDecoder(io.LimitReader(res.Body, maxDecodedBodyBytes)).Decode(&decoded); err != nil {
@@ -4339,17 +3850,8 @@ func (c *Client) RemoveTeamMember(ctx context.Context, params RemoveTeamMemberPa
 		_ = res.Body.Close()
 		result.Status400 = &decoded
 		return result, nil
-	case 401:
+	case 204, 401, 403, 404:
 		_ = res.Body.Close()
-		result.Status401 = true
-		return result, nil
-	case 403:
-		_ = res.Body.Close()
-		result.Status403 = true
-		return result, nil
-	case 404:
-		_ = res.Body.Close()
-		result.Status404 = true
 		return result, nil
 	default:
 		rawBody, readErr := io.ReadAll(io.LimitReader(res.Body, maxDiagnosticBodyBytes))
@@ -4371,7 +3873,6 @@ type WhoamiResponse struct {
 	Raw        *http.Response
 	Status200  *APIKeyWhoami
 	Status400  *ValidationErr
-	Status401  bool
 }
 
 func (c *Client) NewWhoamiRequest(ctx context.Context) (*http.Request, error) {
@@ -4436,7 +3937,6 @@ func (c *Client) Whoami(ctx context.Context) (*WhoamiResponse, error) {
 		return result, nil
 	case 401:
 		_ = res.Body.Close()
-		result.Status401 = true
 		return result, nil
 	default:
 		rawBody, readErr := io.ReadAll(io.LimitReader(res.Body, maxDiagnosticBodyBytes))

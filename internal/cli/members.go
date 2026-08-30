@@ -6,6 +6,7 @@ import (
 	"flag"
 	"fmt"
 	"io"
+	"net/http"
 	"strings"
 	"time"
 
@@ -118,7 +119,6 @@ func listShowMembers(
 	if response.Status200 == nil {
 		return teamManagementResponseError(
 			"list show members", response.StatusCode, response.Status400,
-			response.Status401, response.Status403, response.Status404,
 		)
 	}
 	if err := writeShowMembers(stdout, response.Status200.Members); err != nil {
@@ -143,7 +143,6 @@ func listTeamMembers(
 	if response.Status200 == nil {
 		return teamManagementResponseError(
 			"list members", response.StatusCode, response.Status400,
-			response.Status401, response.Status403, false,
 		)
 	}
 	if err := writeTeamMembers(stdout, response.Status200.Members); err != nil {
@@ -294,7 +293,6 @@ func inviteShowMember(
 	if response.Status201 == nil {
 		return publicapi.PendingShowInvitation{}, teamManagementResponseError(
 			"invite show member", response.StatusCode, response.Status400,
-			response.Status401, response.Status403, response.Status409,
 		)
 	}
 	return *response.Status201, nil
@@ -321,7 +319,6 @@ func inviteTeamMember(
 	if response.Status201 == nil {
 		return publicapi.PendingTeamInvitation{}, teamManagementResponseError(
 			"invite member", response.StatusCode, response.Status400,
-			response.Status401, response.Status403, response.Status409,
 		)
 	}
 	return *response.Status201, nil
@@ -397,10 +394,9 @@ func updateShowMemberRole(
 	if response == nil {
 		return errors.New("change show member role returned no response")
 	}
-	if !response.Status204 {
+	if response.StatusCode != http.StatusNoContent {
 		return teamManagementResponseError(
 			"change show member role", response.StatusCode, response.Status400,
-			response.Status401, response.Status403, response.Status404,
 		)
 	}
 	_, err = fmt.Fprintf(stdout, "Changed show member %s to %s.\n", memberID, role)
@@ -426,10 +422,9 @@ func updateTeamMemberRole(
 	if response == nil {
 		return errors.New("change member role returned no response")
 	}
-	if !response.Status204 {
+	if response.StatusCode != http.StatusNoContent {
 		return teamManagementResponseError(
 			"change member role", response.StatusCode, response.Status400,
-			response.Status401, response.Status403, response.Status404,
 		)
 	}
 	_, err = fmt.Fprintf(stdout, "Changed member %s to %s.\n", memberID, role)
@@ -502,10 +497,9 @@ func removeShowMember(
 	if response == nil {
 		return errors.New("remove show member returned no response")
 	}
-	if !response.Status204 {
+	if response.StatusCode != http.StatusNoContent {
 		return teamManagementResponseError(
 			"remove show member", response.StatusCode, response.Status400,
-			response.Status401, response.Status403, response.Status404,
 		)
 	}
 	_, err = fmt.Fprintf(stdout, "Removed show member %s.\n", memberID)
@@ -525,10 +519,9 @@ func removeTeamMember(
 	if response == nil {
 		return errors.New("remove member returned no response")
 	}
-	if !response.Status204 {
+	if response.StatusCode != http.StatusNoContent {
 		return teamManagementResponseError(
 			"remove member", response.StatusCode, response.Status400,
-			response.Status401, response.Status403, response.Status404,
 		)
 	}
 	_, err = fmt.Fprintf(stdout, "Removed member %s.\n", memberID)
@@ -567,18 +560,15 @@ func teamManagementResponseError(
 	action string,
 	status int,
 	validation *publicapi.ValidationErr,
-	unauthorized bool,
-	forbidden bool,
-	conflictOrNotFound bool,
 ) error {
 	switch {
 	case validation != nil:
 		return fmt.Errorf("%s: %s", action, validation.Message)
-	case unauthorized:
+	case status == http.StatusUnauthorized:
 		return fmt.Errorf("%s: authentication failed; run listenbox login", action)
-	case forbidden:
+	case status == http.StatusForbidden:
 		return fmt.Errorf("%s: team owner permission is required", action)
-	case conflictOrNotFound:
+	case status == http.StatusConflict || status == http.StatusNotFound:
 		return fmt.Errorf("%s: target is unavailable", action)
 	default:
 		return fmt.Errorf("%s returned HTTP status %d", action, status)

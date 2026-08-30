@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"net/http"
 	"strings"
 
 	publicapi "github.com/listenbox/listenbox-cli/publicapi"
@@ -73,11 +74,11 @@ func validateShowDeletionResponse(slug string, response *publicapi.CreateShowDel
 	switch {
 	case response.Status400 != nil:
 		return nil, fmt.Errorf("delete show %q: %s", slug, response.Status400.Message)
-	case response.Status401:
+	case response.StatusCode == http.StatusUnauthorized:
 		return nil, fmt.Errorf("delete show %q: authentication failed; run listenbox login", slug)
-	case response.Status403:
+	case response.StatusCode == http.StatusForbidden:
 		return nil, fmt.Errorf("delete show %q: only the current show owner may delete it", slug)
-	case response.Status404:
+	case response.StatusCode == http.StatusNotFound:
 		return nil, fmt.Errorf("delete show %q: show not found", slug)
 	default:
 		return nil, fmt.Errorf("delete show %q returned HTTP status %d", slug, response.StatusCode)

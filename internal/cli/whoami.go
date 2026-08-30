@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"net/http"
 	"strings"
 
 	publicapi "github.com/listenbox/listenbox-cli/publicapi"
@@ -39,7 +40,7 @@ func authStatus(
 	switch {
 	case response.Status200 != nil:
 		return printAuthStatus(stdout, *response.Status200)
-	case response.Status401:
+	case response.StatusCode == http.StatusUnauthorized:
 		return fmt.Errorf(
 			"auth status against %q: authentication failed; run listenbox login",
 			config.apiOrigin,

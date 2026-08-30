@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"net/http"
 	"net/url"
 	"strings"
 
@@ -131,13 +132,13 @@ func handleImportRSSResponse(
 			response.Status402.CurrentEntitlement,
 			response.Status402.PricingUrl,
 		)
-	case response.Status401:
+	case response.StatusCode == http.StatusUnauthorized:
 		return fmt.Errorf("import RSS feed %q: authentication failed; run listenbox login", sourceURL)
-	case response.Status403:
+	case response.StatusCode == http.StatusForbidden:
 		return fmt.Errorf("import RSS feed %q: API key lacks show:create scope", sourceURL)
-	case response.Status409 && slugExplicit:
+	case response.StatusCode == http.StatusConflict && slugExplicit:
 		return fmt.Errorf("import RSS feed %q: requested slug %q conflicts", sourceURL, requestedSlug)
-	case response.Status409:
+	case response.StatusCode == http.StatusConflict:
 		return fmt.Errorf("import RSS feed %q: import choice conflicts", sourceURL)
 	default:
 		return fmt.Errorf("import RSS feed %q returned HTTP status %d", sourceURL, response.StatusCode)

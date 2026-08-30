@@ -228,7 +228,7 @@ func isUnauthorized(err error) bool {
 }
 
 func responseUnauthorized(response *publicapi.CreateCLIAuthorizationResponse) bool {
-	return response != nil && response.Status401
+	return response != nil && response.StatusCode == http.StatusUnauthorized
 }
 
 func validateVerificationURL(value string) error {

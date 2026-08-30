@@ -64,7 +64,7 @@ func handleListShowsResponse(stdout io.Writer, response *publicapi.ListShowsResp
 		return nil
 	case response.Status400 != nil:
 		return fmt.Errorf("list shows: %s", response.Status400.Message)
-	case response.Status401:
+	case response.StatusCode == http.StatusUnauthorized:
 		return errors.New("list shows: authentication failed; run listenbox login")
 	default:
 		return fmt.Errorf("list shows returned HTTP status %d", response.StatusCode)
@@ -293,11 +293,11 @@ func handleCreateShowResponse(
 		return nil
 	case response.Status400 != nil:
 		return fmt.Errorf("create show %q: %s", slug, response.Status400.Message)
-	case response.Status401:
+	case response.StatusCode == http.StatusUnauthorized:
 		return fmt.Errorf("create show %q: authentication failed; run listenbox login", slug)
-	case response.Status403:
+	case response.StatusCode == http.StatusForbidden:
 		return fmt.Errorf("create show %q: API key lacks show:create scope", slug)
-	case response.Status409:
+	case response.StatusCode == http.StatusConflict:
 		return fmt.Errorf("create show: slug %q already exists", slug)
 	default:
 		return fmt.Errorf("create show %q returned HTTP status %d", slug, response.StatusCode)
