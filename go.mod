@@ -3,7 +3,7 @@ module github.com/listenbox/listenbox-cli
 go 1.27.0
 
 require (
-	github.com/Oudwins/zog v0.22.2
+	github.com/Oudwins/zog v0.23.0
 	github.com/knadh/koanf/parsers/yaml v1.1.1
 	github.com/knadh/koanf/providers/file v1.2.1
 	github.com/knadh/koanf/providers/rawbytes v1.0.1
