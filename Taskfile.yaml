@@ -39,24 +39,13 @@ tasks:
       - ./**/*.go
       - ./**/*.yaml
 
-  build:
-    run: once
-    deps:
-      - mod:download
-    cmd: go build ./...
-    sources:
-      - Taskfile.yaml
-      - go.mod
-      - go.sum
-      - ./**/*.go
-      - ./**/*.yaml
-
   check:
+    desc: Lint and test the CLI, then smoke-test its entrypoint directly from source.
     run: once
     deps:
-      - build
       - lint
       - test
+    cmd: go run ./cmd/listenbox help
 
   mod:tidy:
     cmd: go mod tidy
