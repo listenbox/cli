@@ -1,2 +1,13 @@
-/.task/
 /listenbox
+
+.task/
+.cache/
+dist/
+build/
+coverage/
+.test-results/
+test-results/
+*.test
+*.prof
+*.pprof
+**/.moon/cache/

@@ -42,7 +42,7 @@ go test -tags=dev ./...
 [Task](https://taskfile.dev) runs the complete project check:
 
 ```sh
-task check
+pkgx moon run check
 ```
 
 ## License
