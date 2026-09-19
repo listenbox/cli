@@ -36,13 +36,18 @@ tasks:
       - .golangci.yaml
       - ./**/*.go
       - ./**/*.yaml
-    script: >-
+    script: |-
       set -euo pipefail
-
-      gofmt -w .
-
-      go run github.com/golangci/golangci-lint/v2/cmd/golangci-lint@v2.13.1 run
-      --allow-serial-runners --timeout=15m --build-tags=dev ./...
+      if [[ "${CI:-}" == "true" ]]; then
+        test -z "$(gofmt -l .)"
+      else
+        gofmt -w .
+      fi
+      go vet -tags=dev ./...
+      mkdir -p .cache/golangci-lint-tmp
+      GOLANGCI_LINT_CACHE="${GOLANGCI_LINT_CACHE:-$PWD/.cache/golangci-lint}" \
+        TMPDIR="$PWD/.cache/golangci-lint-tmp" \
+        go run github.com/golangci/golangci-lint/v2/cmd/golangci-lint@v2.13.1 run --timeout=15m --build-tags=dev ./...
     options:
       cache: true
   check:
