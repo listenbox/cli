@@ -39,11 +39,18 @@ go build ./cmd/listenbox
 go test -tags=dev ./...
 ```
 
-[Task](https://taskfile.dev) runs the complete project check:
+[Moon](https://moonrepo.dev) runs the complete project check:
 
 ```sh
-task check
+pkgx moon run check
 ```
+
+CI runs the same check with formatting verification and Go vet. It restores Go
+modules, compiler output, and golangci-lint data, saving an updated cache for each
+commit. Moon restores only its portable `hashes` and `outputs` directories, keyed
+by runner architecture and the resolved toolchain. Moon hashes task sources,
+embedded YAML, module files, configuration, and CI environment inputs before
+reusing a result.
 
 ## License
 
