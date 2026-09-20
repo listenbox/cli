@@ -42,15 +42,19 @@ go test -tags=dev ./...
 [Moon](https://moonrepo.dev) runs the complete project check:
 
 ```sh
-pkgx moon run check
+moon run check
 ```
 
-CI runs the same check with formatting verification and Go vet. It restores Go
-modules, compiler output, and golangci-lint data, saving an updated cache for each
-commit. Moon restores only its portable `hashes` and `outputs` directories, keyed
-by runner architecture and the resolved toolchain. Moon hashes task sources,
-embedded YAML, module files, configuration, and CI environment inputs before
-reusing a result.
+CI follows [Moon's CI guide](https://moonrepo.dev/docs/guides/ci): full Git
+history, source-based affected selection, and plain `moon ci`. It runs the same
+project tasks used locally; aggregate checks and maintenance commands are excluded
+from automatic selection. The same `moon.yml` also works as a Listenbox submodule.
+
+Go modules, compiler output, and golangci-lint data are cached. Moon task results
+are not restored across CI runs. Sources, module files, fixtures, templates, and
+configuration determine affected tasks; `$CI` is not an input. CI verifies
+formatting, and selected Go tests bypass Go's test-result cache. Native Moon
+reports are attached to the workflow, including on failure.
 
 ## License
 

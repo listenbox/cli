@@ -1,5 +1,11 @@
 toolchains:
   default: system
+fileGroups:
+  sources:
+    - go.mod
+    - go.sum
+    - ./**/*.go
+    - ./**/*.yaml
 tasks:
   mod-download:
     inputs:
@@ -12,7 +18,7 @@ tasks:
       cache: true
   test:
     deps:
-      - cli:mod-download
+      - ~:mod-download
     inputs:
       - moon.yml
       - go.mod
@@ -21,14 +27,14 @@ tasks:
       - ./**/*.yaml
     script: |-
       set -euo pipefail
-      go test -tags=dev ./...
+      go test -count=1 -tags=dev ./...
     options:
       cache: true
   lint:
     env:
       CGO_ENABLED: "0"
     deps:
-      - cli:mod-download
+      - ~:mod-download
     inputs:
       - moon.yml
       - go.mod
@@ -50,19 +56,33 @@ tasks:
         go run github.com/golangci/golangci-lint/v2/cmd/golangci-lint@v2.13.1 run --timeout=15m --build-tags=dev ./...
     options:
       cache: true
-  check:
-    description: Lint and test the CLI, then smoke-test its entrypoint directly from source.
+  smoke:
+    description: Smoke-test the CLI entrypoint directly from source.
     deps:
-      - cli:lint
-      - cli:test
-    script: |-
-      set -euo pipefail
-      go run ./cmd/listenbox help
+      - ~:mod-download
+    inputs:
+      - "@group(sources)"
+    command: go run ./cmd/listenbox help
+    options:
+      cache: true
+  check:
+    description: Lint, test, and smoke-test the CLI.
+    deps:
+      - ~:lint
+      - ~:test
+      - ~:smoke
+    inputs: []
+    options:
+      runInCI: false
   mod-tidy:
+    options:
+      runInCI: false
     script: |-
       set -euo pipefail
       go mod tidy
   outdated:
+    options:
+      runInCI: false
     script: >-
       set -euo pipefail
 
