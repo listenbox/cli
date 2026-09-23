@@ -2,11 +2,35 @@ toolchains:
   default: system
 fileGroups:
   sources:
+    - bundle-media.ts
     - go.mod
     - go.sum
     - ./**/*.go
     - ./**/*.yaml
 tasks:
+  media-runtime:
+    description: Bundle FFmpeg 9+ and FFprobe beside the native CLI executable.
+    inputs:
+      - bundle-media.ts
+    checks:
+      - check: fingerprint
+        script: ffmpeg -version && ffprobe -version
+        hash: stdout
+    command: node bundle-media.ts
+    outputs:
+      - dist/ffmpeg
+      - dist/ffprobe
+      - dist/ffmpeg-NOTICE.txt
+      - dist/ffprobe-NOTICE.txt
+  build:
+    deps:
+      - ~:mod-download
+      - ~:media-runtime
+    inputs:
+      - "@group(sources)"
+    command: go build -o dist/listenbox ./cmd/listenbox
+    outputs:
+      - dist/listenbox
   mod-download:
     inputs:
       - go.mod
@@ -65,12 +89,20 @@ tasks:
     command: go run ./cmd/listenbox help
     options:
       cache: true
+  package:
+    description: Package the CLI with its native media runtime and license notices.
+    deps:
+      - ~:build
+    script: tar -czf dist/listenbox.tar.gz -C dist listenbox ffmpeg ffprobe ffmpeg-NOTICE.txt ffprobe-NOTICE.txt
+    outputs:
+      - dist/listenbox.tar.gz
   check:
     description: Lint, test, and smoke-test the CLI.
     deps:
       - ~:lint
       - ~:test
       - ~:smoke
+      - ~:package
     inputs: []
     options:
       runInCI: false
