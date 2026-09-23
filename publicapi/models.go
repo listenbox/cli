@@ -192,6 +192,15 @@ type CreateCLIAuthorization struct {
 	Scopes []ApiKeyScope `json:"scopes"`
 }
 
+type CreateEpisodePackage struct {
+	Description     *string               `json:"description,omitempty"`
+	DurationSeconds int64                 `json:"duration_seconds"`
+	Objects         []PreparedMediaObject `json:"objects"`
+	ShowSlug        ShowSlug              `json:"show_slug"`
+	SourceUrl       string                `json:"source_url"`
+	Title           string                `json:"title"`
+}
+
 type CreateEpisodeUploadSession struct {
 	ByteLength   int64                    `json:"byte_length"`
 	ContentType  EpisodeUploadContentType `json:"content_type"`
@@ -479,6 +488,16 @@ type EpisodeListItem struct {
 	VideoHlsUrl     *string                    `json:"video_hls_url,omitempty"`
 }
 
+type EpisodePackage struct {
+	EpisodeId       EpisodeID       `json:"episode_id"`
+	ObjectPrefix    NonEmptyString  `json:"object_prefix"`
+	PartSize        int64           `json:"part_size"`
+	ShowId          ShowID          `json:"show_id"`
+	Status          string          `json:"status"`
+	TeamId          TeamID          `json:"team_id"`
+	UploadSessionId UploadSessionID `json:"upload_session_id"`
+}
+
 type EpisodePage struct {
 	Episodes   []EpisodeListItem  `json:"episodes"`
 	NextCursor *EpisodePageCursor `json:"next_cursor,omitempty"`
@@ -738,6 +757,13 @@ type PendingTeamInvitation struct {
 	Id        TeamInvitationID   `json:"id"`
 	InvitedAt UnixMillis         `json:"invited_at"`
 	Role      AssignableTeamRole `json:"role"`
+}
+
+type PreparedMediaObject struct {
+	ByteLength  int64     `json:"byte_length"`
+	ContentType string    `json:"content_type"`
+	Name        string    `json:"name"`
+	Sha256      SHA256Hex `json:"sha256"`
 }
 
 type PresignEpisodeUploadSessionParts struct {
@@ -1264,6 +1290,28 @@ const (
 	ValidationLocationCookie ValidationLocation = "cookie"
 )
 
+type VideoAdmissionError struct {
+	Code                 VideoAdmissionErrorCode  `json:"code"`
+	CurrentPlan          VideoPlan                `json:"current_plan"`
+	DeliveryEntitlement  VideoDeliveryEntitlement `json:"delivery_entitlement"`
+	LimitSeconds         int64                    `json:"limit_seconds"`
+	PricingUrl           string                   `json:"pricing_url"`
+	RemainingSeconds     int64                    `json:"remaining_seconds"`
+	RequestedSeconds     int64                    `json:"requested_seconds"`
+	RequiredNextPlan     VideoPlan                `json:"required_next_plan"`
+	ReservedSeconds      int64                    `json:"reserved_seconds"`
+	RetainedSeconds      int64                    `json:"retained_seconds"`
+	SalesContactRequired bool                     `json:"sales_contact_required"`
+}
+
+type VideoAdmissionErrorCode string
+
+const (
+	VideoAdmissionErrorCodeVideoPlanRequired   VideoAdmissionErrorCode = "video_plan_required"
+	VideoAdmissionErrorCodeVideoHoursExhausted VideoAdmissionErrorCode = "video_hours_exhausted"
+	VideoAdmissionErrorCodeVideoHoursExceeded  VideoAdmissionErrorCode = "video_hours_exceeded"
+)
+
 type VideoDeliveryEntitlement string
 
 const (
@@ -1271,6 +1319,14 @@ const (
 	VideoDeliveryEntitlementAudio   VideoDeliveryEntitlement = "audio"
 	VideoDeliveryEntitlementVideoHd VideoDeliveryEntitlement = "video_hd"
 	VideoDeliveryEntitlementVideo4k VideoDeliveryEntitlement = "video_4k"
+)
+
+type VideoPlan string
+
+const (
+	VideoPlanStarter      VideoPlan = "starter"
+	VideoPlanProfessional VideoPlan = "professional"
+	VideoPlanStudio       VideoPlan = "studio"
 )
 
 type String = string

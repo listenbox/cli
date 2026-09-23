@@ -1075,6 +1075,389 @@ func (c *Client) EpisodeDeletionEvents(ctx context.Context, params EpisodeDeleti
 	}
 }
 
+type CreateEpisodePackageParams struct {
+	Body CreateEpisodePackage
+}
+
+type CreateEpisodePackageResponse struct {
+	StatusCode int
+	Raw        *http.Response
+	Status201  *EpisodePackage
+	Status400  *ValidationErr
+	Status402  *VideoAdmissionError
+}
+
+func (c *Client) NewCreateEpisodePackageRequest(ctx context.Context, params CreateEpisodePackageParams) (*http.Request, error) {
+	if ctx == nil {
+		return nil, fmt.Errorf("build CreateEpisodePackage request: context must not be nil")
+	}
+	path := "/s/episode-packages"
+
+	endpoint, err := url.Parse(c.baseURL + path)
+	if err != nil {
+		return nil, fmt.Errorf("build CreateEpisodePackage URL: %w", err)
+	}
+	encodedBody, err := json.Marshal(params.Body)
+	if err != nil {
+		return nil, fmt.Errorf("encode CreateEpisodePackage JSON body: %w", err)
+	}
+	requestBody := bytes.NewReader(encodedBody)
+	req, err := http.NewRequestWithContext(ctx, "POST", endpoint.String(), requestBody)
+	if err != nil {
+		return nil, fmt.Errorf("build CreateEpisodePackage request: %w", err)
+	}
+	req.Header.Set("Accept", "application/json")
+	req.Header.Set("Content-Type", "application/json")
+	return req, nil
+}
+
+func (c *Client) CreateEpisodePackage(ctx context.Context, params CreateEpisodePackageParams) (*CreateEpisodePackageResponse, error) {
+
+	req, err := c.NewCreateEpisodePackageRequest(ctx, params)
+	if err != nil {
+		return nil, err
+	}
+	responseCtx, lifecycle := c.responseContext(ctx)
+	req = req.Clone(responseCtx)
+	keepLifecycle := false
+	defer func() {
+		if !keepLifecycle {
+			lifecycle.close()
+		}
+	}()
+	res, err := c.do(responseCtx, req)
+	if err != nil {
+		return nil, fmt.Errorf("execute CreateEpisodePackage request: %w", err)
+	}
+	if res == nil {
+		return nil, fmt.Errorf("execute CreateEpisodePackage request: HTTP client returned nil response")
+	}
+
+	result := &CreateEpisodePackageResponse{StatusCode: res.StatusCode, Raw: res}
+	switch res.StatusCode {
+	case 201:
+		var decoded EpisodePackage
+		if err := json.NewDecoder(io.LimitReader(res.Body, maxDecodedBodyBytes)).Decode(&decoded); err != nil {
+			_ = res.Body.Close()
+			return nil, fmt.Errorf("decode CreateEpisodePackage status 201 response: %w", err)
+		}
+		_ = res.Body.Close()
+		result.Status201 = &decoded
+		return result, nil
+	case 400:
+		var decoded ValidationErr
+		if err := json.NewDecoder(io.LimitReader(res.Body, maxDecodedBodyBytes)).Decode(&decoded); err != nil {
+			_ = res.Body.Close()
+			return nil, fmt.Errorf("decode CreateEpisodePackage status 400 response: %w", err)
+		}
+		_ = res.Body.Close()
+		result.Status400 = &decoded
+		return result, nil
+	case 402:
+		var decoded VideoAdmissionError
+		if err := json.NewDecoder(io.LimitReader(res.Body, maxDecodedBodyBytes)).Decode(&decoded); err != nil {
+			_ = res.Body.Close()
+			return nil, fmt.Errorf("decode CreateEpisodePackage status 402 response: %w", err)
+		}
+		_ = res.Body.Close()
+		result.Status402 = &decoded
+		return result, nil
+	case 401, 404, 409:
+		_ = res.Body.Close()
+		return result, nil
+	default:
+		rawBody, readErr := io.ReadAll(io.LimitReader(res.Body, maxDiagnosticBodyBytes))
+		_ = res.Body.Close()
+		if readErr != nil {
+			return nil, fmt.Errorf("read unexpected CreateEpisodePackage response status %d: %w", res.StatusCode, readErr)
+		}
+		return nil, &UnexpectedStatusError{
+			Method:     req.Method,
+			URL:        req.URL.String(),
+			StatusCode: res.StatusCode,
+			Body:       strings.TrimSpace(string(rawBody)),
+		}
+	}
+}
+
+type CancelEpisodePackageParams struct {
+	UploadSessionId UploadSessionID
+}
+
+type CancelEpisodePackageResponse struct {
+	StatusCode int
+	Raw        *http.Response
+	Status400  *ValidationErr
+}
+
+func (c *Client) NewCancelEpisodePackageRequest(ctx context.Context, params CancelEpisodePackageParams) (*http.Request, error) {
+	if ctx == nil {
+		return nil, fmt.Errorf("build CancelEpisodePackage request: context must not be nil")
+	}
+	if params.UploadSessionId == "" {
+		return nil, fmt.Errorf("build CancelEpisodePackage request: required parameter upload_session_id is empty")
+	}
+	path := "/s/episode-packages/{upload_session_id}"
+
+	path = strings.ReplaceAll(path, "{upload_session_id}", url.PathEscape(fmt.Sprint(params.UploadSessionId)))
+	endpoint, err := url.Parse(c.baseURL + path)
+	if err != nil {
+		return nil, fmt.Errorf("build CancelEpisodePackage URL: %w", err)
+	}
+	req, err := http.NewRequestWithContext(ctx, "DELETE", endpoint.String(), nil)
+	if err != nil {
+		return nil, fmt.Errorf("build CancelEpisodePackage request: %w", err)
+	}
+	req.Header.Set("Accept", "application/json")
+	return req, nil
+}
+
+func (c *Client) CancelEpisodePackage(ctx context.Context, params CancelEpisodePackageParams) (*CancelEpisodePackageResponse, error) {
+
+	req, err := c.NewCancelEpisodePackageRequest(ctx, params)
+	if err != nil {
+		return nil, err
+	}
+	responseCtx, lifecycle := c.responseContext(ctx)
+	req = req.Clone(responseCtx)
+	keepLifecycle := false
+	defer func() {
+		if !keepLifecycle {
+			lifecycle.close()
+		}
+	}()
+	res, err := c.do(responseCtx, req)
+	if err != nil {
+		return nil, fmt.Errorf("execute CancelEpisodePackage request: %w", err)
+	}
+	if res == nil {
+		return nil, fmt.Errorf("execute CancelEpisodePackage request: HTTP client returned nil response")
+	}
+
+	result := &CancelEpisodePackageResponse{StatusCode: res.StatusCode, Raw: res}
+	switch res.StatusCode {
+	case 400:
+		var decoded ValidationErr
+		if err := json.NewDecoder(io.LimitReader(res.Body, maxDecodedBodyBytes)).Decode(&decoded); err != nil {
+			_ = res.Body.Close()
+			return nil, fmt.Errorf("decode CancelEpisodePackage status 400 response: %w", err)
+		}
+		_ = res.Body.Close()
+		result.Status400 = &decoded
+		return result, nil
+	case 204, 401, 409:
+		_ = res.Body.Close()
+		return result, nil
+	default:
+		rawBody, readErr := io.ReadAll(io.LimitReader(res.Body, maxDiagnosticBodyBytes))
+		_ = res.Body.Close()
+		if readErr != nil {
+			return nil, fmt.Errorf("read unexpected CancelEpisodePackage response status %d: %w", res.StatusCode, readErr)
+		}
+		return nil, &UnexpectedStatusError{
+			Method:     req.Method,
+			URL:        req.URL.String(),
+			StatusCode: res.StatusCode,
+			Body:       strings.TrimSpace(string(rawBody)),
+		}
+	}
+}
+
+type CompleteEpisodePackageParams struct {
+	UploadSessionId UploadSessionID
+}
+
+type CompleteEpisodePackageResponse struct {
+	StatusCode int
+	Raw        *http.Response
+	Status200  *EpisodePackage
+	Status400  *ValidationErr
+}
+
+func (c *Client) NewCompleteEpisodePackageRequest(ctx context.Context, params CompleteEpisodePackageParams) (*http.Request, error) {
+	if ctx == nil {
+		return nil, fmt.Errorf("build CompleteEpisodePackage request: context must not be nil")
+	}
+	if params.UploadSessionId == "" {
+		return nil, fmt.Errorf("build CompleteEpisodePackage request: required parameter upload_session_id is empty")
+	}
+	path := "/s/episode-packages/{upload_session_id}/complete"
+
+	path = strings.ReplaceAll(path, "{upload_session_id}", url.PathEscape(fmt.Sprint(params.UploadSessionId)))
+	endpoint, err := url.Parse(c.baseURL + path)
+	if err != nil {
+		return nil, fmt.Errorf("build CompleteEpisodePackage URL: %w", err)
+	}
+	req, err := http.NewRequestWithContext(ctx, "POST", endpoint.String(), nil)
+	if err != nil {
+		return nil, fmt.Errorf("build CompleteEpisodePackage request: %w", err)
+	}
+	req.Header.Set("Accept", "application/json")
+	return req, nil
+}
+
+func (c *Client) CompleteEpisodePackage(ctx context.Context, params CompleteEpisodePackageParams) (*CompleteEpisodePackageResponse, error) {
+
+	req, err := c.NewCompleteEpisodePackageRequest(ctx, params)
+	if err != nil {
+		return nil, err
+	}
+	responseCtx, lifecycle := c.responseContext(ctx)
+	req = req.Clone(responseCtx)
+	keepLifecycle := false
+	defer func() {
+		if !keepLifecycle {
+			lifecycle.close()
+		}
+	}()
+	res, err := c.do(responseCtx, req)
+	if err != nil {
+		return nil, fmt.Errorf("execute CompleteEpisodePackage request: %w", err)
+	}
+	if res == nil {
+		return nil, fmt.Errorf("execute CompleteEpisodePackage request: HTTP client returned nil response")
+	}
+
+	result := &CompleteEpisodePackageResponse{StatusCode: res.StatusCode, Raw: res}
+	switch res.StatusCode {
+	case 200:
+		var decoded EpisodePackage
+		if err := json.NewDecoder(io.LimitReader(res.Body, maxDecodedBodyBytes)).Decode(&decoded); err != nil {
+			_ = res.Body.Close()
+			return nil, fmt.Errorf("decode CompleteEpisodePackage status 200 response: %w", err)
+		}
+		_ = res.Body.Close()
+		result.Status200 = &decoded
+		return result, nil
+	case 400:
+		var decoded ValidationErr
+		if err := json.NewDecoder(io.LimitReader(res.Body, maxDecodedBodyBytes)).Decode(&decoded); err != nil {
+			_ = res.Body.Close()
+			return nil, fmt.Errorf("decode CompleteEpisodePackage status 400 response: %w", err)
+		}
+		_ = res.Body.Close()
+		result.Status400 = &decoded
+		return result, nil
+	case 401, 409:
+		_ = res.Body.Close()
+		return result, nil
+	default:
+		rawBody, readErr := io.ReadAll(io.LimitReader(res.Body, maxDiagnosticBodyBytes))
+		_ = res.Body.Close()
+		if readErr != nil {
+			return nil, fmt.Errorf("read unexpected CompleteEpisodePackage response status %d: %w", res.StatusCode, readErr)
+		}
+		return nil, &UnexpectedStatusError{
+			Method:     req.Method,
+			URL:        req.URL.String(),
+			StatusCode: res.StatusCode,
+			Body:       strings.TrimSpace(string(rawBody)),
+		}
+	}
+}
+
+type PresignEpisodePackagePartsParams struct {
+	UploadSessionId UploadSessionID
+	ObjectIndex     int64
+	Body            PresignEpisodeUploadSessionParts
+}
+
+type PresignEpisodePackagePartsResponse struct {
+	StatusCode int
+	Raw        *http.Response
+	Status200  *PresignedEpisodeUploadParts
+	Status400  *ValidationErr
+}
+
+func (c *Client) NewPresignEpisodePackagePartsRequest(ctx context.Context, params PresignEpisodePackagePartsParams) (*http.Request, error) {
+	if ctx == nil {
+		return nil, fmt.Errorf("build PresignEpisodePackageParts request: context must not be nil")
+	}
+	if params.UploadSessionId == "" {
+		return nil, fmt.Errorf("build PresignEpisodePackageParts request: required parameter upload_session_id is empty")
+	}
+	path := "/s/episode-packages/{upload_session_id}/objects/{object_index}/parts"
+
+	path = strings.ReplaceAll(path, "{upload_session_id}", url.PathEscape(fmt.Sprint(params.UploadSessionId)))
+	path = strings.ReplaceAll(path, "{object_index}", url.PathEscape(fmt.Sprint(params.ObjectIndex)))
+	endpoint, err := url.Parse(c.baseURL + path)
+	if err != nil {
+		return nil, fmt.Errorf("build PresignEpisodePackageParts URL: %w", err)
+	}
+	encodedBody, err := json.Marshal(params.Body)
+	if err != nil {
+		return nil, fmt.Errorf("encode PresignEpisodePackageParts JSON body: %w", err)
+	}
+	requestBody := bytes.NewReader(encodedBody)
+	req, err := http.NewRequestWithContext(ctx, "POST", endpoint.String(), requestBody)
+	if err != nil {
+		return nil, fmt.Errorf("build PresignEpisodePackageParts request: %w", err)
+	}
+	req.Header.Set("Accept", "application/json")
+	req.Header.Set("Content-Type", "application/json")
+	return req, nil
+}
+
+func (c *Client) PresignEpisodePackageParts(ctx context.Context, params PresignEpisodePackagePartsParams) (*PresignEpisodePackagePartsResponse, error) {
+
+	req, err := c.NewPresignEpisodePackagePartsRequest(ctx, params)
+	if err != nil {
+		return nil, err
+	}
+	responseCtx, lifecycle := c.responseContext(ctx)
+	req = req.Clone(responseCtx)
+	keepLifecycle := false
+	defer func() {
+		if !keepLifecycle {
+			lifecycle.close()
+		}
+	}()
+	res, err := c.do(responseCtx, req)
+	if err != nil {
+		return nil, fmt.Errorf("execute PresignEpisodePackageParts request: %w", err)
+	}
+	if res == nil {
+		return nil, fmt.Errorf("execute PresignEpisodePackageParts request: HTTP client returned nil response")
+	}
+
+	result := &PresignEpisodePackagePartsResponse{StatusCode: res.StatusCode, Raw: res}
+	switch res.StatusCode {
+	case 200:
+		var decoded PresignedEpisodeUploadParts
+		if err := json.NewDecoder(io.LimitReader(res.Body, maxDecodedBodyBytes)).Decode(&decoded); err != nil {
+			_ = res.Body.Close()
+			return nil, fmt.Errorf("decode PresignEpisodePackageParts status 200 response: %w", err)
+		}
+		_ = res.Body.Close()
+		result.Status200 = &decoded
+		return result, nil
+	case 400:
+		var decoded ValidationErr
+		if err := json.NewDecoder(io.LimitReader(res.Body, maxDecodedBodyBytes)).Decode(&decoded); err != nil {
+			_ = res.Body.Close()
+			return nil, fmt.Errorf("decode PresignEpisodePackageParts status 400 response: %w", err)
+		}
+		_ = res.Body.Close()
+		result.Status400 = &decoded
+		return result, nil
+	case 401, 409:
+		_ = res.Body.Close()
+		return result, nil
+	default:
+		rawBody, readErr := io.ReadAll(io.LimitReader(res.Body, maxDiagnosticBodyBytes))
+		_ = res.Body.Close()
+		if readErr != nil {
+			return nil, fmt.Errorf("read unexpected PresignEpisodePackageParts response status %d: %w", res.StatusCode, readErr)
+		}
+		return nil, &UnexpectedStatusError{
+			Method:     req.Method,
+			URL:        req.URL.String(),
+			StatusCode: res.StatusCode,
+			Body:       strings.TrimSpace(string(rawBody)),
+		}
+	}
+}
+
 type CreateEpisodeUploadSessionParams struct {
 	Body CreateEpisodeUploadSession
 }

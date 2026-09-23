@@ -560,7 +560,7 @@ func writeRootUsage(writer io.Writer) {
 	_, _ = fmt.Fprintln(writer)
 	_, _ = fmt.Fprintln(writer, "Commands:")
 	_, _ = fmt.Fprintln(writer, "  login    Authorize this CLI with Listenbox")
-	_, _ = fmt.Fprintln(writer, "  import   Import an RSS feed")
+	_, _ = fmt.Fprintln(writer, "  import   Import an RSS feed or YouTube URL")
 	_, _ = fmt.Fprintln(writer, "  auth     Manage CLI authorization")
 	_, _ = fmt.Fprintln(writer, "  shows    Manage shows by slug")
 	_, _ = fmt.Fprintln(writer, "  episodes Manage episodes")

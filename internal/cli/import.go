@@ -36,6 +36,11 @@ func importPodcast(
 	slug string,
 	slugExplicit bool,
 ) error {
+	if isYouTubeSource(sourceURL) {
+		return importYouTube(
+			ctx, stdout, stderr, home, configPath, configExplicit, defaultConfig, sourceURL, slug, slugExplicit,
+		)
+	}
 	config, err := loadCLIConfig(configPath, configExplicit, home, defaultConfig)
 	if err != nil {
 		return err

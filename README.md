@@ -3,18 +3,20 @@
 Official command-line client for publishing and managing podcasts on
 [Listenbox](https://listenbox.app).
 
-The CLI talks only to Listenbox's public API. Its generated Go client and local
-configuration types are committed to this repository.
+The CLI uses Listenbox's public API. YouTube imports use [kkdai/youtube](https://github.com/kkdai/youtube) to download on your computer and bundled FFmpeg 9+ to prepare media before uploading it directly to Listenbox's media storage.
 
 ## Install
 
-Requires Go 1.27 or newer.
+Build a native distribution with Go 1.27+, Node.js 26, Moon, and FFmpeg/FFprobe 9+ installed:
 
 ```sh
-go install github.com/listenbox/listenbox-cli/cmd/listenbox@latest
+moon run package
+tar -xzf dist/listenbox.tar.gz -C /your/bin/directory
 ```
 
-Make sure Go's binary directory is on `PATH`, then authorize the CLI:
+Keep `listenbox`, `ffmpeg`, `ffprobe`, and the license notices together. The bundle uses the build machine's native media binaries; Linux builds require compatible system C libraries. Media processing resolves these bundled executables directly.
+
+Make sure the installation directory is on `PATH`, then authorize the CLI:
 
 ```sh
 listenbox login
@@ -24,6 +26,7 @@ listenbox login
 
 ```sh
 listenbox shows list
+listenbox import "https://www.youtube.com/playlist?list=YOUR_PLAYLIST_ID"
 listenbox help
 ```
 
