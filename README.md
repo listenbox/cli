@@ -72,3 +72,12 @@ regenerates it from the canonical public contract before building.
 origins are validated. No schema interpreter runs during startup. Integrated
 coverage lives in `apps/api/e2e` in that workspace and runs this Rust executable
 against deterministic local services, including YouTube responses.
+
+Production origins and disabled trace-ID output are compiled into the same binary
+used in E2E tests. Tests supply an isolated YAML config with their dynamic service
+origins and `print_trace_ids: true`; no test-only executable or Cargo feature is
+required.
+
+The [startup and footprint report](bench/README.md) compares this implementation
+against Go with statically linked go-astiav and kkdai/youtube, with raw wall-time,
+CPU, RSS, and binary-size measurements.

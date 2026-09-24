@@ -1,4 +1,4 @@
-// Linux startup benchmark: no shell, HTTP, JSON, config, or terminal rendering.
+// Linux startup benchmark: no shell, HTTP, JSON response decoding, or terminal rendering.
 // Build: cc -O2 -Wall -Wextra -Werror bench/startup.c -o /tmp/cli-startup
 // Run: taskset -c CPU /tmp/cli-startup /absolute/go-cli /absolute/rust-cli > samples.csv
 #define _GNU_SOURCE

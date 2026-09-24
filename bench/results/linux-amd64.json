@@ -1,0 +1,322 @@
+[
+  {
+    "implementation": "go",
+    "command": "root-help",
+    "samples": 300,
+    "cpu_percent": 126.77180301202564,
+    "metrics": {
+      "wall_us": {
+        "mean": 6341.147223333333,
+        "median": 6004.094499999999,
+        "p95": 9276.939,
+        "min": 3921.427,
+        "max": 10478.786,
+        "stddev": 1533.139337293172
+      },
+      "user_us": {
+        "mean": 3449.3766666666666,
+        "median": 3227.0,
+        "p95": 6381.0,
+        "min": 0.0,
+        "max": 9684.0,
+        "stddev": 1675.2967343495368
+      },
+      "system_us": {
+        "mean": 4589.41,
+        "median": 4537.0,
+        "p95": 7356.0,
+        "min": 0.0,
+        "max": 9687.0,
+        "stddev": 1764.9137491390336
+      },
+      "peak_rss_kib": {
+        "mean": 13359.8,
+        "median": 13404.0,
+        "p95": 13564.0,
+        "min": 12968.0,
+        "max": 13604.0,
+        "stddev": 136.66001609834532
+      },
+      "minor_faults": {
+        "mean": 804.0433333333333,
+        "median": 807.0,
+        "p95": 843.0,
+        "min": 746.0,
+        "max": 864.0,
+        "stddev": 26.731656431196992
+      },
+      "major_faults": {
+        "mean": 0.0,
+        "median": 0.0,
+        "p95": 0.0,
+        "min": 0.0,
+        "max": 0.0,
+        "stddev": 0.0
+      },
+      "voluntary_context_switches": {
+        "mean": 71.17666666666666,
+        "median": 70.0,
+        "p95": 91.0,
+        "min": 45.0,
+        "max": 98.0,
+        "stddev": 10.672649884426807
+      },
+      "involuntary_context_switches": {
+        "mean": 0.47,
+        "median": 0.0,
+        "p95": 2.0,
+        "min": 0.0,
+        "max": 6.0,
+        "stddev": 0.9393792276462862
+      },
+      "total_cpu_us": {
+        "mean": 8038.786666666667,
+        "median": 7715.0,
+        "p95": 11438.0,
+        "min": 4873.0,
+        "max": 13286.0,
+        "stddev": 1906.8806223311994
+      }
+    }
+  },
+  {
+    "implementation": "rust",
+    "command": "root-help",
+    "samples": 300,
+    "cpu_percent": 95.45116754863707,
+    "metrics": {
+      "wall_us": {
+        "mean": 2690.85935,
+        "median": 2544.5655,
+        "p95": 3842.319,
+        "min": 1387.266,
+        "max": 5580.644,
+        "stddev": 693.7030734145224
+      },
+      "user_us": {
+        "mean": 638.1666666666666,
+        "median": 765.0,
+        "p95": 2095.0,
+        "min": 0.0,
+        "max": 3453.0,
+        "stddev": 718.4236903728112
+      },
+      "system_us": {
+        "mean": 1930.29,
+        "median": 1930.5,
+        "p95": 3337.0,
+        "min": 0.0,
+        "max": 3835.0,
+        "stddev": 797.9393497628752
+      },
+      "peak_rss_kib": {
+        "mean": 6620.133333333333,
+        "median": 6640.0,
+        "p95": 6792.0,
+        "min": 6228.0,
+        "max": 6860.0,
+        "stddev": 117.87126687855508
+      },
+      "minor_faults": {
+        "mean": 350.24666666666667,
+        "median": 350.0,
+        "p95": 353.0,
+        "min": 348.0,
+        "max": 358.0,
+        "stddev": 1.5510713143573451
+      },
+      "major_faults": {
+        "mean": 0.0,
+        "median": 0.0,
+        "p95": 0.0,
+        "min": 0.0,
+        "max": 0.0,
+        "stddev": 0.0
+      },
+      "voluntary_context_switches": {
+        "mean": 0.9933333333333333,
+        "median": 1.0,
+        "p95": 1.0,
+        "min": 0.0,
+        "max": 1.0,
+        "stddev": 0.08137703743822469
+      },
+      "involuntary_context_switches": {
+        "mean": 0.20333333333333334,
+        "median": 0.0,
+        "p95": 1.0,
+        "min": 0.0,
+        "max": 1.0,
+        "stddev": 0.402478432824529
+      },
+      "total_cpu_us": {
+        "mean": 2568.4566666666665,
+        "median": 2394.0,
+        "p95": 3711.0,
+        "min": 1349.0,
+        "max": 4490.0,
+        "stddev": 660.8478756785777
+      }
+    }
+  },
+  {
+    "implementation": "go",
+    "command": "episodes-create-help",
+    "samples": 300,
+    "cpu_percent": 126.4117530395956,
+    "metrics": {
+      "wall_us": {
+        "mean": 6037.204993333334,
+        "median": 5562.034,
+        "p95": 9144.379,
+        "min": 3878.597,
+        "max": 10719.99,
+        "stddev": 1492.1623623526116
+      },
+      "user_us": {
+        "mean": 3111.5333333333333,
+        "median": 2913.0,
+        "p95": 5998.0,
+        "min": 0.0,
+        "max": 8223.0,
+        "stddev": 1667.6253682673723
+      },
+      "system_us": {
+        "mean": 4520.203333333333,
+        "median": 4515.0,
+        "p95": 7365.0,
+        "min": 0.0,
+        "max": 10111.0,
+        "stddev": 1715.937425623544
+      },
+      "peak_rss_kib": {
+        "mean": 13375.946666666667,
+        "median": 13416.0,
+        "p95": 13564.0,
+        "min": 12972.0,
+        "max": 13628.0,
+        "stddev": 136.32782971776362
+      },
+      "minor_faults": {
+        "mean": 805.6666666666666,
+        "median": 809.0,
+        "p95": 849.0,
+        "min": 740.0,
+        "max": 862.0,
+        "stddev": 28.671627477738724
+      },
+      "major_faults": {
+        "mean": 0.0,
+        "median": 0.0,
+        "p95": 0.0,
+        "min": 0.0,
+        "max": 0.0,
+        "stddev": 0.0
+      },
+      "voluntary_context_switches": {
+        "mean": 70.58333333333333,
+        "median": 68.0,
+        "p95": 91.0,
+        "min": 50.0,
+        "max": 101.0,
+        "stddev": 9.655208726669535
+      },
+      "involuntary_context_switches": {
+        "mean": 0.28,
+        "median": 0.0,
+        "p95": 2.0,
+        "min": 0.0,
+        "max": 4.0,
+        "stddev": 0.649307323229917
+      },
+      "total_cpu_us": {
+        "mean": 7631.736666666667,
+        "median": 7116.0,
+        "p95": 11176.0,
+        "min": 4833.0,
+        "max": 14155.0,
+        "stddev": 1808.948906774932
+      }
+    }
+  },
+  {
+    "implementation": "rust",
+    "command": "episodes-create-help",
+    "samples": 300,
+    "cpu_percent": 95.63121746636804,
+    "metrics": {
+      "wall_us": {
+        "mean": 2613.5294166666667,
+        "median": 2435.2295000000004,
+        "p95": 3919.653,
+        "min": 1495.249,
+        "max": 4612.294,
+        "stddev": 686.079782003456
+      },
+      "user_us": {
+        "mean": 664.0133333333333,
+        "median": 808.5,
+        "p95": 1992.0,
+        "min": 0.0,
+        "max": 2932.0,
+        "stddev": 705.4151967616109
+      },
+      "system_us": {
+        "mean": 1835.3366666666666,
+        "median": 1901.5,
+        "p95": 3286.0,
+        "min": 0.0,
+        "max": 4398.0,
+        "stddev": 837.4302856490337
+      },
+      "peak_rss_kib": {
+        "mean": 6725.626666666667,
+        "median": 6734.0,
+        "p95": 6876.0,
+        "min": 6340.0,
+        "max": 6944.0,
+        "stddev": 118.40999657498892
+      },
+      "minor_faults": {
+        "mean": 351.9033333333333,
+        "median": 351.0,
+        "p95": 357.0,
+        "min": 349.0,
+        "max": 359.0,
+        "stddev": 2.010138193148808
+      },
+      "major_faults": {
+        "mean": 0.0,
+        "median": 0.0,
+        "p95": 0.0,
+        "min": 0.0,
+        "max": 0.0,
+        "stddev": 0.0
+      },
+      "voluntary_context_switches": {
+        "mean": 0.9966666666666667,
+        "median": 1.0,
+        "p95": 1.0,
+        "min": 0.0,
+        "max": 1.0,
+        "stddev": 0.057638721552635275
+      },
+      "involuntary_context_switches": {
+        "mean": 0.22,
+        "median": 0.0,
+        "p95": 1.0,
+        "min": 0.0,
+        "max": 1.0,
+        "stddev": 0.4142463035441596
+      },
+      "total_cpu_us": {
+        "mean": 2499.35,
+        "median": 2322.0,
+        "p95": 3756.0,
+        "min": 1443.0,
+        "max": 4398.0,
+        "stddev": 661.338567477607
+      }
+    }
+  }
+]
