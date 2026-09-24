@@ -1,0 +1,14 @@
+{
+  "name": "@listenbox/cli",
+  "private": true,
+  "type": "module",
+  "dependencies": {
+    "youtubei.js": "18.0.0"
+  },
+  "devDependencies": {
+    "@types/node": "^26.6.2",
+    "esbuild": "0.28.1",
+    "oxfmt": "^0.68.0",
+    "typescript": "7.0.2"
+  }
+}

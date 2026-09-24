@@ -1,8 +1,5 @@
-env:
-  GOCACHE: ${HOME}/.cache/go-build
-  GOTMPDIR: ${HOME}/.cache/go-build
 taskOptions:
-  cache: false
+  cache: true
   unixShell: bash
   outputStyle: stream
 implicitInputs:

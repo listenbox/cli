@@ -47,9 +47,9 @@ await run(
     "--disable-shared",
     "--enable-static",
     "--enable-pic",
-    "--enable-avdevice",
-    "--enable-avfilter",
-    "--enable-swscale",
+    "--disable-avdevice",
+    "--disable-avfilter",
+    "--disable-swscale",
     "--enable-swresample",
     "--enable-protocol=file",
     "--enable-demuxer=mov,matroska,ogg,aac",
@@ -70,5 +70,5 @@ await copyFile(
 )
 await writeFile(
   join(prefix, "NOTICE.txt"),
-  `FFmpeg ${version}\nSource: https://ffmpeg.org/releases/ffmpeg-${version}.tar.xz\nSHA-256: ${checksum}\nConfiguration: see prepare-ffmpeg.ts\n${await readFile(join(source, "COPYING.LGPLv2.1"), "utf8")}`,
+  `FFmpeg ${version}\nSource: https://ffmpeg.org/releases/ffmpeg-${version}.tar.xz\nSHA-256: ${checksum}\nConfiguration: see apps/cli/prepare-ffmpeg.ts\n${await readFile(join(source, "COPYING.LGPLv2.1"), "utf8")}`,
 )
