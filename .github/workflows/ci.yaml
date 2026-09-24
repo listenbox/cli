@@ -12,6 +12,7 @@ jobs:
       - uses: actions/checkout@v7
         with:
           fetch-depth: 0
+          filter: blob:none
       - uses: actions/setup-node@v6
         with:
           node-version: "26"
@@ -34,4 +35,23 @@ jobs:
             ~/.pkgx
           key: rust-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('Cargo.lock', 'rust-toolchain.toml', 'prepare-ffmpeg.ts') }}
       - run: nub i --frozen-lockfile
-      - run: moon run cli:check
+      - name: Check affected tasks
+        id: ci
+        run: moon ci
+      - name: Report Moon CI results
+        if: "!cancelled() && steps.ci.outcome != 'skipped'"
+        uses: moonrepo/run-report-action@v1
+        with:
+          access-token: ${{ secrets.GITHUB_TOKEN }}
+          skip-comment: true
+      - name: Upload Moon reports
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: moon-reports-${{ github.run_attempt }}
+          path: |
+            .moon/cache/ciReport.json
+            .moon/cache/runReport.json
+          if-no-files-found: ignore
+          include-hidden-files: true
+          retention-days: 14
