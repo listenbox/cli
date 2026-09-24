@@ -1,5 +1,8 @@
 # YouTube import benchmark
 
+These are historical results for the commits identified below. They predate the
+shared `listenbox/youtubei` crate and do not measure the current implementation.
+
 One command, from process launch through successful publication:
 
 ```sh

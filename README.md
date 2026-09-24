@@ -4,13 +4,12 @@ Publish podcasts and manage Listenbox shows, episodes, and members from your ter
 
 ## Build and install
 
-Install Rust (rustup), Node.js 26, [Nub](https://nubjs.com), [Moon](https://moonrepo.dev),
+Install Rust (rustup), Python 3.12+, [Moon](https://moonrepo.dev),
 [pkgx](https://pkgx.sh), a C compiler, make, and tar. Rust is pinned by `rust-toolchain.toml`.
 
 ```sh
 git clone https://github.com/listenbox/cli.git
 cd cli
-nub i --frozen-lockfile
 moon run cli:package
 mkdir -p "$HOME/.local/bin"
 cp dist/release/listenbox "$HOME/.local/bin/listenbox"
@@ -18,13 +17,17 @@ cp dist/release/listenbox "$HOME/.local/bin/listenbox"
 
 Put `$HOME/.local/bin` on your PATH. `dist/listenbox.tar.gz` contains the release
 executable and license notices. The executable embeds YouTube.js in QuickJS and
-links FFmpeg libraries through `ffmpeg-the-third`. Node and Nub are build tools. The installed CLI needs neither Node nor
-FFmpeg/FFprobe executables.
+links FFmpeg libraries through `ffmpeg-the-third`. The installed CLI is self-contained.
 
 FFmpeg 9.0.2 is built from a checksum-verified source archive with the codecs needed
-for AAC audio and AVC video packages. See `prepare-ffmpeg.ts` for its configuration
-and the packaged `FFmpeg-NOTICE.txt` for source and LGPL terms. The JavaScript
-bundle is built with esbuild. No Bun runtime or APIs are used.
+for AAC audio and AVC video packages. See `prepare-ffmpeg.py` for its configuration
+and the packaged `FFmpeg-NOTICE.txt` for source and LGPL terms.
+
+YouTube extraction uses the typed Rust bindings in
+[listenbox/youtubei](https://github.com/listenbox/youtubei), pinned by commit in
+Cargo.toml and Cargo.lock. That crate downloads and verifies the published upstream CF-worker bundle during
+Cargo builds. No JavaScript toolchain is needed. Playlist policy, media
+selection, HTTP cancellation and upload cleanup remain in Rust here.
 
 ## Use
 
@@ -78,6 +81,6 @@ used in E2E tests. Tests supply an isolated YAML config with their dynamic servi
 origins and `print_trace_ids: true`; no test-only executable or Cargo feature is
 required.
 
-The [YouTube import benchmark](bench/README.md) compares this implementation
+The historical [YouTube import benchmark](bench/README.md) compares the earlier Rust bridge
 against Go with statically linked go-astiav and kkdai/youtube, measuring the full
 import's wall time, CPU time, CPU utilization, peak RAM, and binary size.

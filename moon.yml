@@ -7,11 +7,7 @@ fileGroups:
     - Cargo.lock
     - rust-toolchain.toml
     - src/**/*.rs
-    - prepare-ffmpeg.ts
-    - js/**/*.ts
-    - tsconfig.json
-    - package.json
-    - nub.lock
+    - prepare-ffmpeg.py
     - .cargo/config.toml
     - moon.yml
 tasks:
@@ -28,26 +24,15 @@ tasks:
   native-ffmpeg:
     description: Build pinned FFmpeg 9 libraries for static linking through ffmpeg-the-third.
     inputs:
-      - prepare-ffmpeg.ts
-    command: node prepare-ffmpeg.ts
+      - prepare-ffmpeg.py
+    command: python3 prepare-ffmpeg.py
     outputs:
       - .cache/ffmpeg/**/*
-    options:
-      cache: true
-  bundle-youtube:
-    inputs:
-      - js/**/*.ts
-      - package.json
-      - nub.lock
-    command: nubx esbuild js/youtube.ts --bundle --platform=browser --format=esm --keep-names --outfile=.cache/youtube.js
-    outputs:
-      - .cache/youtube.js
     options:
       cache: true
   prerequisites:
     deps:
       - ~:native-ffmpeg
-      - ~:bundle-youtube
     inputs: []
     options:
       internal: true
@@ -72,8 +57,6 @@ tasks:
       - "@group(sources)"
     script: |-
       set -euo pipefail
-      nubx oxfmt js/ prepare-ffmpeg.ts tsconfig.json package.json
-      nubx tsc -p tsconfig.json
       cargo fmt --all
       pkgx +llvm.org +cmake.org cargo clippy --locked --all-targets -- -D warnings
   test:

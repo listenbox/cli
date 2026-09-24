@@ -1,11 +1,10 @@
 use crate::{
     api::{Api, string},
     events::Progress,
-    innertube::YouTube,
+    innertube::{Stream, YouTube},
     publicapi as p,
 };
 use anyhow::{Context, Result, ensure};
-use serde::Deserialize;
 use serde_json::json;
 use sha2::{Digest, Sha256};
 use std::{collections::HashSet, path::Path, time::Duration};
@@ -21,20 +20,6 @@ pub fn is_source(source: &str) -> bool {
     })
 }
 
-#[derive(Deserialize)]
-struct Media {
-    title: String,
-    description: String,
-    video: Stream,
-    audio: Option<Stream>,
-}
-
-#[derive(Deserialize)]
-struct Stream {
-    url: String,
-    user_agent: String,
-}
-
 pub async fn import(api: &Api, source: &str, requested_slug: Option<&str>) -> Result<()> {
     let url = Url::parse(source)?;
     ensure!(
@@ -48,13 +33,7 @@ pub async fn import(api: &Api, source: &str, requested_slug: Option<&str>) -> Re
     let (title, videos) =
         if let Some((_, playlist)) = url.query_pairs().find(|(key, _)| key == "list") {
             ensure!(valid_youtube_id(&playlist), "invalid playlist ID");
-            let page = youtube
-                .call(api, "playlist", json!({"id": playlist}))
-                .await?;
-            (
-                string(&page, "title")?.to_owned(),
-                serde_json::from_value::<Vec<String>>(page["videos"].clone())?,
-            )
+            youtube.playlist(api, &playlist).await?
         } else {
             let id = if url.host_str() == Some("youtu.be") {
                 url.path().trim_matches('/').to_owned()
@@ -71,8 +50,8 @@ pub async fn import(api: &Api, source: &str, requested_slug: Option<&str>) -> Re
                 id.len() == 11 && valid_youtube_id(&id),
                 "invalid YouTube video ID"
             );
-            let media = youtube.call(api, "media", json!({"id": id})).await?;
-            (string(&media, "title")?.into(), vec![id])
+            let media = youtube.media(api, &id).await?;
+            (media.title, vec![id])
         };
     ensure!(!videos.is_empty(), "YouTube playlist has no public videos");
     let slug = requested_slug
@@ -139,8 +118,7 @@ fn valid_youtube_id(id: &str) -> bool {
 }
 
 async fn import_video(api: &Api, youtube: &YouTube, slug: &str, id: &str) -> Result<()> {
-    let media: Media =
-        serde_json::from_value(youtube.call(api, "media", json!({"id": id})).await?)?;
+    let media = youtube.media(api, id).await?;
     let directory = tempfile::tempdir()?;
     download(api, &media.video, &directory.path().join("source-video")).await?;
     if let Some(audio) = &media.audio {
