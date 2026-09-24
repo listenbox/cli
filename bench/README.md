@@ -1,7 +1,7 @@
 # YouTube import benchmark
 
-These are historical results for the commits identified below. They predate the
-shared `listenbox/youtubei` crate and do not measure the current implementation.
+Results for the Rust implementation using the shared `listenbox/youtubei` crate,
+compared with the Go baseline from PR #7. Exact revisions are recorded below.
 
 One command, from process launch through successful publication:
 
@@ -9,17 +9,18 @@ One command, from process launch through successful publication:
 listenbox import --slug <unique-show> 'https://www.youtube.com/watch?v=w<unique-id>'
 ```
 
-| Metric | Go | Rust |
-|---|---:|---:|
-| Wall time, including startup | 331 ms | 445 ms |
-| CPU time (user + system) | 198 ms | 285 ms |
-| CPU utilization | 58.4% | 64.7% |
-| Peak RAM (RSS) | 31.2 MiB | 35.0 MiB |
-| Binary size | 21.6 MiB | 19.6 MiB |
+| Metric | Go | Rust | Rust vs. Go |
+|---|---:|---:|---:|
+| Wall time, including startup | 350 ms | 484 ms | +38.2% |
+| CPU time (user + system) | 200 ms | 313 ms | +56.5% |
+| CPU utilization | 56.3% | 65.6% | +9.2 pp |
+| Peak RAM (RSS) | 30.1 MiB | 34.0 MiB | +12.8% |
+| Binary size | 21.6 MiB | 19.9 MiB | -7.8% |
 
 Measured on 2026-09-24. Each runtime figure is the median of 20 imports after four
-warmups per build. On this fixture, Rust takes longer and uses more CPU time and
-RAM; its executable is smaller.
+warmups per build. On this fixture, Rust takes 38.2% longer, uses 56.5% more CPU time and
+12.8% more peak RAM, and has a 7.8% smaller executable. Deltas use unrounded
+medians; CPU utilization is reported in percentage points (pp).
 
 ## What runs
 
@@ -32,8 +33,10 @@ that did not download the Opus fixture.
 
 Go is [3d0f569](https://github.com/listenbox/cli/commit/3d0f56927a9fc0ae8a97d1cb64d209505ea2ae14):
 **go-astiav 0.43.0 + kkdai/youtube 2.10.6**, from [PR #7](https://github.com/listenbox/cli/pull/7).
-Rust is [caaec94](https://github.com/listenbox/cli/commit/caaec943677ce8fc4b32713b12389213d8445b7f):
-**ffmpeg-the-third 6.0.0 + YouTube.js 18.0.0 through rquickjs 0.11.0**.
+Rust is [637e7c2](https://github.com/listenbox/cli/commit/637e7c28b36fe1fb7263726987e72f4caf7508ab):
+**ffmpeg-the-third 6.0.0 + YouTube.js 18.1.0 through rquickjs 0.11.0**, using
+[`listenbox/youtubei` at a394160](https://github.com/listenbox/youtubei/commit/a394160a92d3809bde4d4376d480373bc44ae82e)
+and the published CF-worker bundle.
 Both are optimized, stripped release executables with statically linked FFmpeg
 9.0.2. No external FFmpeg or JavaScript process runs during the import.
 
