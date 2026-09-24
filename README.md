@@ -3,18 +3,18 @@
 Official command-line client for publishing and managing podcasts on
 [Listenbox](https://listenbox.app).
 
-The CLI uses Listenbox's public API. YouTube imports use [kkdai/youtube](https://github.com/kkdai/youtube) to download on your computer and bundled FFmpeg 9+ to prepare media before uploading it directly to Listenbox's media storage.
+The CLI uses Listenbox's public API. YouTube imports use [kkdai/youtube](https://github.com/kkdai/youtube) to download on your computer and statically linked FFmpeg 9.0.2 through [go-astiav](https://github.com/asticode/go-astiav) to prepare media before uploading it directly to Listenbox's media storage.
 
 ## Install
 
-Build a native distribution with Go 1.27+, Node.js 26, Moon, and FFmpeg/FFprobe 9+ installed:
+Build a native distribution with Go 1.27+, Node.js 26, Moon, a C compiler, Make, pkg-config, and tar installed:
 
 ```sh
-moon run package
+moon run cli:package
 tar -xzf dist/listenbox.tar.gz -C /your/bin/directory
 ```
 
-Keep `listenbox`, `ffmpeg`, `ffprobe`, and the license notices together. The bundle uses the build machine's native media binaries; Linux builds require compatible system C libraries. Media processing resolves these bundled executables directly.
+The package contains one executable and its license notices. FFmpeg is built from a checksum-verified source archive, then linked into the CLI through CGO. No FFmpeg/FFprobe installation or media subprocess is needed at runtime. Linux builds still use the system C library. `prepare-ffmpeg.ts` records the exact codecs and build options; the additional avdevice, avfilter, and swscale libraries satisfy go-astiav's binding requirements.
 
 Make sure the installation directory is on `PATH`, then authorize the CLI:
 
@@ -38,14 +38,13 @@ Generated API client and configuration files are committed, so a fresh clone
 builds without another repository or a code-generation step.
 
 ```sh
-go build ./cmd/listenbox
-go test -tags=dev ./...
+moon run cli:build cli:test
 ```
 
 [Moon](https://moonrepo.dev) runs the complete project check:
 
 ```sh
-moon run check
+moon run cli:check
 ```
 
 CI follows [Moon's CI guide](https://moonrepo.dev/docs/guides/ci): full Git

@@ -2,33 +2,32 @@ toolchains:
   default: system
 fileGroups:
   sources:
-    - bundle-media.ts
+    - prepare-ffmpeg.ts
+    - ffmpeg-env.sh
     - go.mod
     - go.sum
     - ./**/*.go
     - ./**/*.yaml
 tasks:
-  media-runtime:
-    description: Bundle FFmpeg 9+ and FFprobe beside the native CLI executable.
+  native-ffmpeg:
+    description: Build pinned static FFmpeg libraries for go-astiav.
     inputs:
-      - bundle-media.ts
-    checks:
-      - check: fingerprint
-        script: ffmpeg -version && ffprobe -version
-        hash: stdout
-    command: node bundle-media.ts
+      - prepare-ffmpeg.ts
+    command: node prepare-ffmpeg.ts
     outputs:
-      - dist/ffmpeg
-      - dist/ffprobe
-      - dist/ffmpeg-NOTICE.txt
-      - dist/ffprobe-NOTICE.txt
+      - .cache/ffmpeg
+    options:
+      cache: true
   build:
     deps:
       - ~:mod-download
-      - ~:media-runtime
+      - ~:native-ffmpeg
     inputs:
       - "@group(sources)"
-    command: go build -o dist/listenbox ./cmd/listenbox
+    script: |-
+      set -euo pipefail
+      source ffmpeg-env.sh
+      go build -trimpath -ldflags="-s -w" -o dist/listenbox ./cmd/listenbox
     outputs:
       - dist/listenbox
   mod-download:
@@ -43,31 +42,37 @@ tasks:
   test:
     deps:
       - ~:mod-download
+      - ~:native-ffmpeg
     inputs:
       - moon.yml
+      - ffmpeg-env.sh
       - go.mod
       - go.sum
       - ./**/*.go
       - ./**/*.yaml
+      - internal/cli/testdata/**/*
     script: |-
       set -euo pipefail
-      go test -count=1 -tags=dev ./...
+      source ffmpeg-env.sh
+      go test -count=1 -tags=dev -timeout=30s ./...
     options:
       cache: true
   lint:
-    env:
-      CGO_ENABLED: "0"
     deps:
       - ~:mod-download
+      - ~:native-ffmpeg
     inputs:
       - moon.yml
+      - ffmpeg-env.sh
       - go.mod
       - go.sum
       - .golangci.yaml
       - ./**/*.go
       - ./**/*.yaml
+      - internal/cli/testdata/**/*
     script: |-
       set -euo pipefail
+      source ffmpeg-env.sh
       if [[ "${CI:-}" == "true" ]]; then
         test -z "$(gofmt -l .)"
       else
@@ -81,19 +86,19 @@ tasks:
     options:
       cache: true
   smoke:
-    description: Smoke-test the CLI entrypoint directly from source.
+    description: Smoke-test the CLI executable.
     deps:
-      - ~:mod-download
-    inputs:
-      - "@group(sources)"
-    command: go run ./cmd/listenbox help
+      - ~:build
+    command: dist/listenbox help
     options:
       cache: true
   package:
     description: Package the CLI with its native media runtime and license notices.
     deps:
       - ~:build
-    script: tar -czf dist/listenbox.tar.gz -C dist listenbox ffmpeg ffprobe ffmpeg-NOTICE.txt ffprobe-NOTICE.txt
+    script: |-
+      cp .cache/ffmpeg/NOTICE.txt dist/ffmpeg-NOTICE.txt
+      tar -czf dist/listenbox.tar.gz -C dist listenbox ffmpeg-NOTICE.txt -C .. LICENSE
     outputs:
       - dist/listenbox.tar.gz
   check:
