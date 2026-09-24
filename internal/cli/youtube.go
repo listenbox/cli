@@ -2,11 +2,9 @@
 package cli
 
 import (
-	"bytes"
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -15,14 +13,13 @@ import (
 	"net/http"
 	"net/url"
 	"os"
-	"os/exec"
 	"path/filepath"
-	"runtime"
 	"slices"
 	"strconv"
 	"strings"
 	"time"
 
+	"github.com/asticode/go-astiav"
 	youtube "github.com/kkdai/youtube/v2"
 	publicapi "github.com/listenbox/listenbox-cli/publicapi"
 )
@@ -32,7 +29,6 @@ const (
 	youtubeCleanupTimeout  = 10 * time.Second
 	youtubeFileMode        = 0o600
 	youtubeDirectoryMode   = 0o700
-	youtubeProcessWait     = 2 * time.Second
 	youtubeResponseLimit   = 64 << 10
 	youtubeVideoKind       = "video"
 	youtubeAudioKind       = "audio"
@@ -264,7 +260,7 @@ func downloadYouTubeVideo(ctx context.Context, client *youtube.Client, video *yo
 	if err := downloadYouTubeStream(ctx, client, video, selected, videoPath); err != nil {
 		return err
 	}
-	args := []string{"-i", videoPath}
+	audioPath := videoPath
 	if selected.AudioChannels == 0 {
 		var audio *youtube.Format
 		for index := range formats {
@@ -276,17 +272,16 @@ func downloadYouTubeVideo(ctx context.Context, client *youtube.Client, video *yo
 		if audio == nil {
 			return errors.New("YouTube video has no audio stream")
 		}
-		audioPath := filepath.Join(directory, "source-audio")
+		audioPath = filepath.Join(directory, "source-audio")
 		if err := downloadYouTubeStream(ctx, client, video, audio, audioPath); err != nil {
 			return err
 		}
-		args = append(args, "-i", audioPath, "-map", "0:v:0", "-map", "1:a:0")
-	} else {
-		args = append(args, "-map", "0:v:0", "-map", "0:a:0")
 	}
-	args = append(args, "-map_metadata", "-1", "-c:v", "copy", "-c:a", "aac", "-b:a", "128k", "-movflags", "+faststart", filepath.Join(directory, "video.mp4"))
-	_, err := runBundledMedia(ctx, "ffmpeg", args...)
-	return err
+	preparedAudio := filepath.Join(directory, "audio.m4a")
+	if err := prepareMediaAudio(ctx, audioPath, preparedAudio); err != nil {
+		return err
+	}
+	return muxMedia(ctx, videoPath, preparedAudio, filepath.Join(directory, "video.mp4"))
 }
 
 func downloadYouTubeStream(ctx context.Context, client *youtube.Client, video *youtube.Video, format *youtube.Format, destination string) error {
@@ -315,63 +310,27 @@ func downloadYouTubeStream(ctx context.Context, client *youtube.Client, video *y
 	return errors.Join(copyErr, file.Close())
 }
 
-func runBundledMedia(ctx context.Context, name string, args ...string) ([]byte, error) {
-	executable, err := os.Executable()
-	if err != nil {
-		return nil, err
-	}
-	fileName := name
-	if runtime.GOOS == "windows" {
-		fileName += ".exe"
-	}
-	program := filepath.Join(filepath.Dir(executable), fileName)
-	if name == "ffmpeg" {
-		args = append([]string{"-nostdin", "-hide_banner", "-loglevel", "error", "-y"}, args...)
-	}
-	command := exec.CommandContext(ctx, program, args...)
-	command.WaitDelay = youtubeProcessWait
-	var stderr bytes.Buffer
-	command.Stderr = &stderr
-	output, err := command.Output()
-	if err != nil {
-		return nil, fmt.Errorf("bundled %s: %w: %s", name, err, strings.TrimSpace(stderr.String()))
-	}
-	return output, nil
-}
-
 func packageYouTubeVideo(ctx context.Context, directory string) (int64, error) {
 	source := filepath.Join(directory, "video.mp4")
-	var dimensions struct {
-		Streams []struct {
-			Width  int `json:"width"`
-			Height int `json:"height"`
-		} `json:"streams"`
-	}
-	encoded, err := runBundledMedia(ctx, "ffprobe", "-v", "error", "-select_streams", "v:0", "-show_entries", "stream=width,height", "-of", "json", source)
+	width, height, err := mediaDimensions(source)
 	if err != nil {
 		return 0, err
-	}
-	if err := json.Unmarshal(encoded, &dimensions); err != nil {
-		return 0, err
-	}
-	if len(dimensions.Streams) != 1 {
-		return 0, errors.New("processed video has no video stream")
 	}
 	for _, kind := range []string{youtubeVideoKind, youtubeAudioKind} {
 		root := filepath.Join(directory, "hls", kind)
 		if err := os.MkdirAll(root, youtubeDirectoryMode); err != nil {
 			return 0, err
 		}
-		mapping := "0:v:0"
+		mediaType := astiav.MediaTypeVideo
 		if kind == youtubeAudioKind {
-			mapping = "0:a:0"
+			mediaType = astiav.MediaTypeAudio
 		}
-		_, err := runBundledMedia(ctx, "ffmpeg", "-i", source, "-map", mapping, "-map_metadata", "-1", "-c", "copy", "-f", "hls", "-hls_time", "6", "-hls_playlist_type", "vod", "-hls_segment_type", "fmp4", "-hls_fmp4_init_filename", "init.mp4", "-hls_segment_filename", filepath.Join(root, "segment-%05d.m4s"), filepath.Join(root, "index.m3u8"))
+		err := packageMediaTrack(ctx, source, root, mediaType)
 		if err != nil {
 			return 0, err
 		}
 	}
-	master := fmt.Sprintf("#EXTM3U\n#EXT-X-VERSION:7\n#EXT-X-INDEPENDENT-SEGMENTS\n#EXT-X-MEDIA:TYPE=AUDIO,GROUP-ID=\"audio\",NAME=\"Audio\",DEFAULT=YES,AUTOSELECT=YES,URI=\"audio/index.m3u8\"\n#EXT-X-STREAM-INF:BANDWIDTH=12000000,RESOLUTION=%dx%d,AUDIO=\"audio\"\nvideo/index.m3u8\n", dimensions.Streams[0].Width, dimensions.Streams[0].Height)
+	master := fmt.Sprintf("#EXTM3U\n#EXT-X-VERSION:7\n#EXT-X-INDEPENDENT-SEGMENTS\n#EXT-X-MEDIA:TYPE=AUDIO,GROUP-ID=\"audio\",NAME=\"Audio\",DEFAULT=YES,AUTOSELECT=YES,URI=\"audio/index.m3u8\"\n#EXT-X-STREAM-INF:BANDWIDTH=12000000,RESOLUTION=%dx%d,AUDIO=\"audio\"\nvideo/index.m3u8\n", width, height)
 	if err := os.WriteFile(filepath.Join(directory, "hls", "master.m3u8"), []byte(master), youtubeFileMode); err != nil {
 		return 0, err
 	}

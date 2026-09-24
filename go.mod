@@ -4,6 +4,7 @@ go 1.27.0
 
 require (
 	github.com/Oudwins/zog v0.23.0
+	github.com/asticode/go-astiav v0.43.0
 	github.com/kkdai/youtube/v2 v2.10.6
 	github.com/knadh/koanf/parsers/yaml v1.1.1
 	github.com/knadh/koanf/providers/file v1.2.1
@@ -15,6 +16,7 @@ require (
 )
 
 require (
+	github.com/asticode/go-astikit v0.42.0 // indirect
 	github.com/bitly/go-simplejson v0.5.1 // indirect
 	github.com/dlclark/regexp2 v1.11.5 // indirect
 	github.com/dop251/goja v0.0.0-20260311135729-065cd970411c // indirect
