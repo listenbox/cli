@@ -15,6 +15,16 @@ fileGroups:
     - .cargo/config.toml
     - moon.yml
 tasks:
+  benchmark-measurer:
+    description: Build the Linux child-process accounting wrapper for API import benchmarks.
+    script: |-
+      set -euo pipefail
+      mkdir -p .cache
+      cc -O2 -Wall -Wextra -Werror bench/measure.c -o .cache/cli-measure
+    inputs: [bench/measure.c]
+    outputs: [.cache/cli-measure]
+    options:
+      runInCI: false
   native-ffmpeg:
     description: Build pinned FFmpeg 9 libraries for static linking through ffmpeg-the-third.
     inputs:

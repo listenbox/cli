@@ -14,10 +14,7 @@
   "rust_youtube": "youtubei.js 18.0.0 through rquickjs 0.11.0",
   "go_flags": "CGO_ENABLED=1 go build -trimpath -ldflags=\"-s -w\"",
   "rust_flags": "cargo build --locked --release; opt-level=3, strip=true, lto=thin",
-  "warmups_per_command_per_binary": 30,
-  "samples_per_command_per_binary": 300,
   "default_affinity": "0-7",
-  "controlled_affinity": "7",
   "unset_environment": [
     "GOMAXPROCS",
     "GOGC",
@@ -32,5 +29,20 @@
     "libgcc_s.so.1",
     "libm.so.6",
     "libc.so.6"
-  ]
+  ],
+  "warmups_per_build": 4,
+  "samples_per_build": 20,
+  "workload": "One fresh YouTube video import: local Innertube responses, 1080p AVC + Opus download, AAC transcode, MP4/HLS packaging, upload and publication",
+  "measurement": "CLOCK_MONOTONIC and wait4 for the CLI child only; supervisor, fixture setup and backend CPU/RAM excluded",
+  "fixture_workspace_commit": "674cadc3bb543a5bf41bd5b59c7d46cf606c58e4",
+  "fixture_files": {
+    "apps/fixtures/e2e/youtube/dash-range/1080/manifest-stream0.mp4": {
+      "bytes": 1570121,
+      "sha256": "7b94dd83068e85136002f6eec994112368b9c3d077351f1ee2a8b5bca60c3b94"
+    },
+    "apps/fixtures/e2e/youtube/audio/opus.webm": {
+      "bytes": 44326,
+      "sha256": "0a5eaec5205f2add1314c71362e1b0720a49eaec41a28a77d655dc53ff8a56ae"
+    }
+  }
 }

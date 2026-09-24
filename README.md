@@ -78,6 +78,6 @@ used in E2E tests. Tests supply an isolated YAML config with their dynamic servi
 origins and `print_trace_ids: true`; no test-only executable or Cargo feature is
 required.
 
-The [startup and footprint report](bench/README.md) compares this implementation
-against Go with statically linked go-astiav and kkdai/youtube, with raw wall-time,
-CPU, RSS, and binary-size measurements.
+The [YouTube import benchmark](bench/README.md) compares this implementation
+against Go with statically linked go-astiav and kkdai/youtube, measuring the full
+import's wall time, CPU time, CPU utilization, peak RAM, and binary size.
