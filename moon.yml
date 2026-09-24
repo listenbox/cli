@@ -83,6 +83,8 @@ tasks:
     outputs:
       - dist/release/listenbox
       - dist/release/FFmpeg-NOTICE.txt
+    options:
+      runInCI: false
   package:
     deps:
       - ~:build-release
@@ -93,6 +95,8 @@ tasks:
     script: tar -czf dist/listenbox.tar.gz -C dist/release listenbox FFmpeg-NOTICE.txt -C ../.. LICENSE THIRD-PARTY-NOTICES.txt
     outputs:
       - dist/listenbox.tar.gz
+    options:
+      runInCI: false
   check:
     deps:
       - ~:lint
