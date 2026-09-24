@@ -1,14 +1,10 @@
 name: CI
-
 on:
   push:
-    branches:
-      - master
+    branches: [master]
   pull_request:
-
 permissions:
   contents: read
-
 jobs:
   check:
     runs-on: ubuntu-24.04
@@ -17,30 +13,20 @@ jobs:
         with:
           fetch-depth: 0
           filter: blob:none
-      - uses: actions/setup-go@v7
-        id: go
-        with:
-          go-version-file: go.mod
-          cache: false
-      - name: Restore Go modules, compiler, and linter caches
-        id: go-cache
-        uses: actions/cache@v6
-        with:
-          path: |
-            ~/go/pkg/mod
-            ~/.cache/go-build
-            .cache/golangci-lint
-          key: go-v1-${{ runner.os }}-${{ runner.arch }}-${{ steps.go.outputs.go-version }}-${{ hashFiles('go.mod', 'go.sum') }}-${{ github.sha }}
-          restore-keys: |
-            go-v1-${{ runner.os }}-${{ runner.arch }}-${{ steps.go.outputs.go-version }}-${{ hashFiles('go.mod', 'go.sum') }}-
-            go-v1-${{ runner.os }}-${{ runner.arch }}-${{ steps.go.outputs.go-version }}-
-      - uses: actions/setup-node@v6
-        with:
-          node-version: "26"
+      - uses: pkgxdev/setup@v5
       - uses: moonrepo/setup-toolchain@v0
         with:
           moon-version: "2.5.5"
-      - run: mkdir -p "$HOME/.cache/go-build"
+      - run: rustup toolchain install 1.98.1 --profile minimal --component clippy,rustfmt
+      - uses: actions/cache@v6
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+            .cache/ffmpeg
+            ~/.pkgx
+          key: rust-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('Cargo.lock', 'rust-toolchain.toml', 'prepare-ffmpeg.py') }}
       - name: Check affected tasks
         id: ci
         run: moon ci
