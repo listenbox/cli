@@ -14,6 +14,14 @@ jobs:
           fetch-depth: 0
           filter: blob:none
       - uses: pkgxdev/setup@v5
+      - uses: nubjs/setup-nub@v0
+        with:
+          nub-version: ^0.9.0
+          cache: true
+          cache-dependency-path: |
+            nub.lock
+            package.json
+      - run: nub install --frozen-lockfile
       - uses: moonrepo/setup-toolchain@v0
         with:
           moon-version: "2.5.5"
@@ -26,7 +34,7 @@ jobs:
             target
             .cache/ffmpeg
             ~/.pkgx
-          key: rust-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('Cargo.lock', 'rust-toolchain.toml', 'prepare-ffmpeg.py') }}
+          key: rust-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('Cargo.lock', 'rust-toolchain.toml', 'prepare-ffmpeg.ts') }}
       - name: Check affected tasks
         id: ci
         run: moon ci

@@ -70,6 +70,6 @@ LISTENBOX_BENCHMARK_GO=/absolute/go-checkout/dist/listenbox moon run api:benchma
 ```
 
 That target builds the Rust release executable and measurement wrapper, starts
-the canonical E2E environment, measures imports, and summarizes them with
-[`summarize.py`](summarize.py). Results are written to
-`apps/api/.test-results/cli-import-summary.json`. No Go correctness suite is run.
+the canonical E2E environment, and measures imports. Raw Go test events and
+`CLI_IMPORT_SAMPLE` measurements are written to
+`apps/api/.test-results/cli-import-benchmark.json`. No Go correctness suite is run.

@@ -1,13 +1,17 @@
 language: rust
 toolchains:
   default: system
+taskOptions:
+  cache: true
 fileGroups:
   sources:
     - Cargo.toml
     - Cargo.lock
     - rust-toolchain.toml
     - src/**/*.rs
-    - prepare-ffmpeg.py
+    - prepare-ffmpeg.ts
+    - package.json
+    - nub.lock
     - .cargo/config.toml
     - moon.yml
 tasks:
@@ -24,12 +28,12 @@ tasks:
   native-ffmpeg:
     description: Build pinned FFmpeg 9 libraries for static linking through ffmpeg-the-third.
     inputs:
-      - prepare-ffmpeg.py
-    command: python3 prepare-ffmpeg.py
+      - prepare-ffmpeg.ts
+      - package.json
+      - nub.lock
+    command: nub prepare-ffmpeg.ts
     outputs:
       - .cache/ffmpeg/**/*
-    options:
-      cache: true
   prerequisites:
     deps:
       - ~:native-ffmpeg
@@ -65,6 +69,13 @@ tasks:
     inputs:
       - "@group(sources)"
     command: pkgx +llvm.org +cmake.org cargo test --locked
+  typecheck:
+    inputs:
+      - prepare-ffmpeg.ts
+      - package.json
+      - nub.lock
+      - tsconfig.json
+    command: nubx tsc --project tsconfig.json
   smoke:
     deps:
       - ~:build
@@ -100,6 +111,7 @@ tasks:
   check:
     deps:
       - ~:lint
+      - ~:typecheck
       - ~:test
       - ~:smoke
       - ~:package

@@ -1,5 +1,4 @@
 taskOptions:
-  cache: true
   unixShell: bash
   outputStyle: stream
 implicitInputs:

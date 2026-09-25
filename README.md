@@ -4,12 +4,13 @@ Publish podcasts and manage Listenbox shows, episodes, and members from your ter
 
 ## Build and install
 
-Install Rust (rustup), Python 3.12+, [Moon](https://moonrepo.dev),
+Install Rust (rustup), [Nub](https://nubjs.com), [Moon](https://moonrepo.dev),
 [pkgx](https://pkgx.sh), a C compiler, make, and tar. Rust is pinned by `rust-toolchain.toml`.
 
 ```sh
 git clone https://github.com/listenbox/cli.git
 cd cli
+nub install --frozen-lockfile
 moon run cli:package
 mkdir -p "$HOME/.local/bin"
 cp dist/release/listenbox "$HOME/.local/bin/listenbox"
@@ -20,13 +21,13 @@ executable and license notices. The executable embeds YouTube.js in QuickJS and
 links FFmpeg libraries through `ffmpeg-the-third`. The installed CLI is self-contained.
 
 FFmpeg 9.0.2 is built from a checksum-verified source archive with the codecs needed
-for AAC audio and AVC video packages. See `prepare-ffmpeg.py` for its configuration
+for AAC audio and AVC video packages. See `prepare-ffmpeg.ts` for its configuration
 and the packaged `FFmpeg-NOTICE.txt` for source and LGPL terms.
 
 YouTube extraction uses the typed Rust bindings in
 [listenbox/youtubei](https://github.com/listenbox/youtubei), pinned by commit in
 Cargo.toml and Cargo.lock. That crate downloads and verifies the published upstream CF-worker bundle during
-Cargo builds. No JavaScript toolchain is needed. Playlist policy, media
+Cargo builds. Nub and ZX run the build and benchmark scripts. Playlist policy, media
 selection, HTTP cancellation and upload cleanup remain in Rust here.
 
 ## Use
