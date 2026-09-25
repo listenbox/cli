@@ -112,4 +112,10 @@ E2E tests use the same code with isolated homes and explicit local configuration
 
 Generated API and configuration modules are committed in `sync-engine`, so this monorepo builds independently. The parent workspace regenerates them through Moon from `packages/openapi/spec/public.responsible.ts` and `client.responsible.ts` before client builds. Its integration command is `moon run api:test-e2e`; both workspaces use `moon ci`.
 
+## Keeping private data out of the repository
+
+Run `moon run client:secrets` before publishing changes. It uses [Gitleaks](https://github.com/gitleaks/gitleaks) to scan all locally available Git history, staged and unstaged edits, and new non-ignored files. `moon ci` always runs this check without caching. Findings are redacted. The additional file-content rules catch personal home paths and personal email addresses; Git author and committer identities remain public attribution.
+
+Keep credentials, sync databases, downloaded media, and logs in the client profile, outside tracked source. The development profile already lives in ignored `.cache/dev`. Local environment files, credentials, SQLite journals, logs, and signing keys are also ignored. Use synthetic data for fixtures and screenshots, and review images manually: a text scanner cannot establish that an image contains no private information.
+
 See `crates/desktop/DESIGN.md` for native tokens and component conventions, and [bench/README.md](bench/README.md) for the historical import benchmark.

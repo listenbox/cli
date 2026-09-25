@@ -17,6 +17,12 @@ fileGroups:
 taskOptions:
   cache: true
 tasks:
+  secrets:
+    command: bash tools/check-secrets.sh
+    inputs: []
+    options:
+      cache: false
+      runInCI: always
   native-ffmpeg:
     inputs: [tools/native-ffmpeg.rs, rust-toolchain.toml]
     script: |-
@@ -43,7 +49,7 @@ tasks:
     deps: [cli:build, desktop:build]
     inputs: []
   check:
-    deps: [~:lint, cli:test, client-engine:test, client-youtubei:test, desktop:test, ~:build]
+    deps: [~:secrets, ~:lint, cli:test, client-engine:test, client-youtubei:test, desktop:test, ~:build]
     inputs: []
     options:
       runInCI: false

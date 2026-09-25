@@ -5,3 +5,19 @@
 /node_modules/
 
 /crates/*/dist/
+
+# Local credentials, sync journals, logs, and macOS signing material.
+.env
+.env.*
+!.env.example
+auth.json
+*.sqlite
+*.sqlite-*
+*.log
+*.pem
+*.key
+*.p12
+*.pfx
+config/local.yaml
+config/*.local.yaml
+.DS_Store
