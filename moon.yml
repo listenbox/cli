@@ -32,17 +32,18 @@ tasks:
       internal: true
   lint:
     deps: [~:prerequisites]
-    inputs: ["@group(sources)"]
+    inputs: ["@group(sources)", tools/**/*.sh]
     script: |-
       set -euo pipefail
       cargo fmt --all
       rustfmt --edition 2024 tools/*.rs
+      pkgx shellcheck tools/*.sh
       pkgx +llvm.org +cmake.org cargo clippy --locked --workspace --all-targets -- -D warnings
   build:
-    deps: [cli:build, client-desktop:build]
+    deps: [cli:build, desktop:build]
     inputs: []
   check:
-    deps: [~:lint, cli:test, client-engine:test, client-youtubei:test, client-desktop:test, ~:build]
+    deps: [~:lint, cli:test, client-engine:test, client-youtubei:test, desktop:test, ~:build]
     inputs: []
     options:
       runInCI: false

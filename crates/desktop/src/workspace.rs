@@ -26,7 +26,8 @@ pub struct Workspace {
     tasks: TaskTracker,
     stopping: Option<Shutdown>,
     quit_guard: crate::quit::QuitGuard,
-    quit_notice: Option<&'static str>,
+    quit_notice: Option<crate::quit::QuitNotice>,
+    quit_task: Option<Task<()>>,
     focus: FocusHandle,
     sender: UnboundedSender<Message>,
     catalog: Catalog,
@@ -110,6 +111,7 @@ impl Workspace {
             stopping: None,
             quit_guard: Default::default(),
             quit_notice: None,
+            quit_task: None,
             focus: cx.focus_handle(),
             sender,
             catalog: Catalog::default(),
@@ -139,6 +141,8 @@ impl Workspace {
         }
         self.stopping = Some(mode);
         self.quit_notice = None;
+        self.quit_task = None;
+        self.quit_guard = Default::default();
         self.cancel.cancel();
         self.tasks.close();
         let (tasks, client, sender) =
@@ -155,6 +159,59 @@ impl Workspace {
             let _ = sender.send(Message::Drained(mode, result));
         });
         cx.notify();
+    }
+
+    fn quit_pressed(&mut self, key_down: Option<Box<dyn Fn() -> bool>>, cx: &mut Context<Self>) {
+        let now = cx.background_executor().now();
+        self.quit_guard.press(now, false);
+        self.quit_notice = Some(crate::quit::QuitNotice::new(now));
+        // One owned task per attempt: a fresh press cancels the previous timer.
+        // The notice's lifetime never depends on delivery of a key-up event.
+        self.quit_task = Some(cx.spawn(async move |view, cx| {
+            loop {
+                cx.background_executor().timer(crate::quit::KEY_POLL).await;
+                let active = view
+                    .update(cx, |view, cx| {
+                        let now = cx.background_executor().now();
+                        if view.quit_guard.is_held()
+                            && let Some(key_down) = &key_down
+                        {
+                            if !key_down() {
+                                view.quit_released(cx);
+                            } else if view.quit_guard.holding(now)
+                                && let Some(notice) = &mut view.quit_notice
+                            {
+                                notice.instruction = "Release ⌘Q to quit";
+                            }
+                        }
+                        if view
+                            .quit_notice
+                            .is_some_and(|notice| notice.opacity(now) == 0.)
+                        {
+                            view.quit_notice = None;
+                            // With no native key state, a missing release cannot leave
+                            // a stale hold armed for an unrelated future key-up.
+                            if key_down.is_none() {
+                                view.quit_guard = Default::default();
+                            }
+                        }
+                        cx.notify();
+                        view.stopping.is_none()
+                            && (view.quit_notice.is_some() || view.quit_guard.is_held())
+                    })
+                    .unwrap_or(false);
+                if !active {
+                    break;
+                }
+            }
+        }));
+        cx.notify();
+    }
+
+    fn quit_released(&mut self, cx: &mut Context<Self>) {
+        if self.quit_guard.release() {
+            self.shutdown(Shutdown::Quit, cx);
+        }
     }
 
     fn reload(&mut self, cx: &mut Context<Self>) {
@@ -696,8 +753,23 @@ impl Workspace {
 }
 
 impl Render for Workspace {
-    fn render(&mut self, _: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
+    fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         let t = Tokens::current(cx);
+        let quit_notice = if self.stopping.is_some() {
+            Some(("Finishing current work…", 1.))
+        } else {
+            self.quit_notice.map(|notice| {
+                let mut opacity = notice.opacity(cx.background_executor().now());
+                if opacity > 0. && opacity < 1. {
+                    if cx.reduce_motion() {
+                        opacity = 0.;
+                    } else {
+                        window.request_animation_frame();
+                    }
+                }
+                (notice.instruction, opacity)
+            })
+        };
         div()
             .track_focus(&self.focus)
             .capture_key_down(cx.listener(|view, event: &KeyDownEvent, _, cx| {
@@ -706,37 +778,17 @@ impl Render for Workspace {
                     if event.is_held || view.stopping.is_some() {
                         return;
                     }
-                    view.quit_guard.press(std::time::Instant::now(), false);
-                    view.quit_notice = Some("Hold ⌘Q or press it again to quit");
-                    cx.spawn(async move |view, cx| {
-                        cx.background_executor().timer(crate::quit::HOLD).await;
-                        let _ = view.update(cx, |view, cx| {
-                            if view.quit_guard.holding(std::time::Instant::now()) {
-                                view.quit_notice = Some("Release ⌘Q to quit");
-                                cx.notify();
-                            }
-                        });
-                    })
-                    .detach();
-                    cx.notify();
+                    view.quit_pressed(crate::platform::quit_key_state(), cx);
                 }
             }))
             .capture_key_up(cx.listener(|view, event: &KeyUpEvent, _, cx| {
                 if event.keystroke.key == "q" {
-                    if view.quit_guard.release(std::time::Instant::now()) {
-                        view.shutdown(Shutdown::Quit, cx);
-                    } else {
-                        cx.spawn(async move |view, cx| {
-                            cx.background_executor()
-                                .timer(crate::quit::DOUBLE_PRESS)
-                                .await;
-                            let _ = view.update(cx, |view, cx| {
-                                view.quit_notice = None;
-                                cx.notify();
-                            });
-                        })
-                        .detach();
-                    }
+                    view.quit_released(cx);
+                }
+            }))
+            .on_modifiers_changed(cx.listener(|view, event: &ModifiersChangedEvent, _, cx| {
+                if !event.modifiers.platform {
+                    view.quit_released(cx);
                 }
             }))
             .relative()
@@ -752,24 +804,6 @@ impl Render for Workspace {
                     .flex_col()
                     .flex_1()
                     .min_w_0()
-                    .when(
-                        self.stopping.is_some() || self.quit_notice.is_some(),
-                        |pane| {
-                            pane.child(
-                                div()
-                                    .id("quit-notice")
-                                    .px(px(tokens::SPACE))
-                                    .py_4()
-                                    .bg(t.ink)
-                                    .text_color(t.sheet)
-                                    .child(if self.stopping.is_some() {
-                                        "Finishing current work and saving progress…"
-                                    } else {
-                                        self.quit_notice.unwrap_or_default()
-                                    }),
-                            )
-                        },
-                    )
                     .child(
                         div()
                             .h(px(56.))
@@ -834,6 +868,48 @@ impl Render for Workspace {
                             .when(self.loaded, |pane| pane.child(self.transfers(cx))),
                     ),
             )
+            .when_some(quit_notice, |workspace, (instruction, opacity)| {
+                workspace.child(
+                    div()
+                        .absolute()
+                        .inset_0()
+                        .flex()
+                        .items_center()
+                        .justify_center()
+                        .child(
+                            div()
+                                .id("quit-notice")
+                                .opacity(opacity)
+                                .occlude()
+                                .w(px(tokens::QUIT_HUD_WIDTH))
+                                .p(px(tokens::SPACE))
+                                .rounded(px(tokens::QUIT_HUD_RADIUS))
+                                .bg(t.action.opacity(0.96))
+                                .text_color(t.action_ink)
+                                .flex()
+                                .flex_col()
+                                .items_center()
+                                .gap(px(tokens::GAP))
+                                .text_center()
+                                .child(
+                                    div()
+                                        .text_size(px(if self.stopping.is_some() {
+                                            tokens::TITLE
+                                        } else {
+                                            tokens::QUIT_SHORTCUT
+                                        }))
+                                        .line_height(relative(1.))
+                                        .font_weight(FontWeight::MEDIUM)
+                                        .child(if self.stopping.is_some() {
+                                            "Saving progress"
+                                        } else {
+                                            "⌘ Q"
+                                        }),
+                                )
+                                .child(div().child(instruction)),
+                        ),
+                )
+            })
     }
 }
 

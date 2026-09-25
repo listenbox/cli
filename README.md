@@ -24,6 +24,32 @@ The app is `crates/desktop/dist/listenbox-desktop`; the terminal executable is `
 
 FFmpeg 9.0.2 is built from verified source by `tools/native-ffmpeg.rs`, linked with `ffmpeg-the-third`, and never run as a subprocess. The physical `youtubei` crate embeds a verified upstream bundle in QuickJS. Both applications are self-contained. See `THIRD-PARTY-NOTICES.txt` and the packaged FFmpeg source/license notice.
 
+## Desktop development
+
+In the parent Listenbox workspace, start the backend and dashboard in one terminal:
+
+```sh
+moonx dev
+```
+
+Then start the desktop watcher in another terminal, from either workspace:
+
+```sh
+moonx desktop:dev
+```
+
+This follows [Mazit's watchexec workflow](https://github.com/meoyawn/mazit/blob/main/Taskfile.yaml): source changes rebuild and restart the debug app after a 300 ms debounce. Changes to engine and YouTube code, migrations, assets, Cargo manifests, and local config are watched too. Failed builds leave the watcher running for the next edit. Quit Listenbox ends the watcher; closing the window keeps the app running. Ctrl-C stops the watcher and app. Restart signals use the app's normal cancel-and-drain path, with a five-second force-stop guard; the engine recovers interrupted work from its journal.
+
+The watched crate directories come from `cargo metadata`, following the desktop's transitive local dependencies. There is no hand-maintained crate list, and CLI source edits do not restart the desktop. Cargo handles incremental compilation through `desktop:build`. Restart `moonx desktop:dev` after adding or removing a local crate dependency so it discovers the changed dependency graph.
+
+`config/dev.yaml` points at `http://localhost:8080` (public API) and `http://localhost:5174` (dashboard sign-in), with API trace IDs enabled. The watcher sets `LISTENBOX_PROFILE_DIR` to this checkout's `.cache/dev`, isolating credentials and resumable work from the normal production profile. To use the same dev login from the CLI, run from the client repository:
+
+```sh
+env LISTENBOX_PROFILE_DIR="$PWD/.cache/dev" crates/cli/dist/listenbox --config config/dev.yaml shows list
+```
+
+The desktop task runs independently of the parent `scripts/dev.ts` and never starts or stops the backend services. For a standalone client checkout, start those services separately on the configured addresses.
+
 ## Install
 
 macOS downloads are attached to tagged [GitHub releases](https://github.com/listenbox/client/releases). Open the DMG and drag Listenbox to Applications, or extract the command-line executable from the matching architecture archive. The release workflow builds Apple Silicon and Intel packages. Current bundles are ad-hoc signed; Developer ID signing and Apple notarization require distribution credentials. Local builds can set `LISTENBOX_SIGNING_IDENTITY` for a configured Developer ID certificate.
@@ -74,7 +100,7 @@ RestartSec=10
 
 ## Configuration and tests
 
-Both applications read `~/.config/listenbox/config.yaml`, or accept `--config PATH`. Release defaults are:
+Both applications read `~/.config/listenbox/config.yaml`, or accept `--config PATH`. `LISTENBOX_PROFILE_DIR` overrides the shared directory for config, credentials, and sync state; an empty override is rejected. `--config` selects the config file without changing that profile directory. Release defaults are:
 
 ```yaml
 api_origin: https://v1.listenbox.app

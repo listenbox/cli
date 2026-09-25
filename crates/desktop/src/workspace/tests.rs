@@ -5,6 +5,7 @@ use core::prelude::v1::test;
 use gpui_kit::component::Root;
 use gpui_kit::test::TestWindowExt;
 use listenbox_sync_engine::config::Config;
+use std::{cell::Cell, rc::Rc, time::Duration};
 
 // Runs against the real ephemeral Listenbox API from apps/api/e2e. Standalone
 // checks do not silently substitute a fake API; the parent explicitly invokes it.
@@ -79,6 +80,151 @@ async fn live_backend(cx: &mut TestAppContext) {
 }
 
 #[gpui_kit::test]
+fn quit_hint_expires_without_a_key_up_event(cx: &mut TestAppContext) {
+    let (_profile, window, view) = quit_workspace(cx);
+    cx.dispatch_keystroke(window.into(), Keystroke::parse("cmd-q").unwrap());
+    cx.update_window(window.into(), |_, window, cx| {
+        window.render_frame(cx);
+        assert!(
+            view.read(cx).quit_notice.is_some(),
+            "Cmd-Q did not show the hint"
+        );
+        assert!(view.read(cx).stopping.is_none());
+    })
+    .unwrap();
+    // No key-up is delivered. The hint must stay readable, fade, then disappear.
+    advance_quit_clock(cx, Duration::from_millis(1900));
+    assert_eq!(
+        cx.update(|cx| view
+            .read(cx)
+            .quit_notice
+            .unwrap()
+            .opacity(cx.background_executor().now())),
+        1.
+    );
+    advance_quit_clock(cx, Duration::from_millis(200));
+    let opacity = cx.update(|cx| {
+        view.read(cx)
+            .quit_notice
+            .unwrap()
+            .opacity(cx.background_executor().now())
+    });
+    assert!(
+        (0.2..0.8).contains(&opacity),
+        "the hint did not fade: {opacity}"
+    );
+    advance_quit_clock(cx, Duration::from_millis(200));
+    cx.update_window(window.into(), |_, window, cx| {
+        window.render_frame(cx);
+        assert!(
+            view.read(cx).quit_notice.is_none(),
+            "the quit hint stayed visible after its two-second lifetime"
+        );
+        assert!(view.read(cx).stopping.is_none());
+    })
+    .unwrap();
+    cx.update_window(window.into(), |_, window, cx| {
+        window.dispatch_event(
+            PlatformInput::KeyUp(KeyUpEvent {
+                keystroke: Keystroke::parse("cmd-q").unwrap(),
+            }),
+            cx,
+        );
+        assert!(
+            view.read(cx).stopping.is_none(),
+            "a late key-up armed a stale quit"
+        );
+    })
+    .unwrap();
+}
+
+#[gpui_kit::test]
+fn a_new_quit_hint_owns_its_full_lifetime(cx: &mut TestAppContext) {
+    let (_profile, window, view) = quit_workspace(cx);
+    cx.dispatch_keystroke(window.into(), Keystroke::parse("cmd-q").unwrap());
+    advance_quit_clock(cx, Duration::from_millis(1500));
+    cx.dispatch_keystroke(window.into(), Keystroke::parse("cmd-q").unwrap());
+    // The previous attempt would have expired by now. It cannot dismiss this one.
+    advance_quit_clock(cx, Duration::from_millis(800));
+    assert_eq!(
+        cx.update(|cx| view
+            .read(cx)
+            .quit_notice
+            .unwrap()
+            .opacity(cx.background_executor().now())),
+        1.
+    );
+    assert!(cx.update(|cx| view.read(cx).stopping.is_none()));
+    advance_quit_clock(cx, Duration::from_millis(1500));
+    assert!(cx.update(|cx| view.read(cx).quit_notice.is_none()));
+}
+
+#[gpui_kit::test]
+fn native_key_release_does_not_turn_a_tap_into_a_hold(cx: &mut TestAppContext) {
+    let (_profile, _, view) = quit_workspace(cx);
+    // The native key query reports a released key even though no KeyUp arrived.
+    cx.update(|cx| {
+        view.update(cx, |view, cx| {
+            view.quit_pressed(Some(Box::new(|| false)), cx)
+        })
+    });
+    // Even a delayed first poll is not evidence the shortcut was held.
+    advance_quit_clock(cx, Duration::from_millis(2100));
+    assert!(cx.update(|cx| !view.read(cx).quit_guard.is_held()));
+    assert!(cx.update(|cx| view.read(cx).stopping.is_none()));
+    advance_quit_clock(cx, Duration::from_millis(200));
+    assert!(cx.update(|cx| view.read(cx).quit_notice.is_none()));
+}
+
+#[gpui_kit::test]
+async fn held_shortcut_waits_for_release_and_drain(cx: &mut TestAppContext) {
+    let (_profile, _, view) = quit_workspace(cx);
+    let (tasks, runtime, cancel) = cx.update(|cx| {
+        let view = view.read(cx);
+        (
+            view.tasks.clone(),
+            view.runtime.clone(),
+            view.cancel.clone(),
+        )
+    });
+    let (admitted, started) = tokio::sync::oneshot::channel();
+    let (commit, committed) = tokio::sync::oneshot::channel();
+    tasks.spawn_on(
+        async move {
+            admitted.send(()).unwrap();
+            cancel.cancelled().await;
+            committed.await.unwrap();
+        },
+        runtime.handle(),
+    );
+    started.await.unwrap();
+    let down = Rc::new(Cell::new(true));
+    let key = down.clone();
+    cx.update(|cx| {
+        view.update(cx, |view, cx| {
+            view.quit_pressed(Some(Box::new(move || key.get())), cx)
+        })
+    });
+    advance_quit_clock(cx, crate::quit::HOLD);
+    assert!(cx.update(|cx| view.read(cx).stopping.is_none()));
+    advance_quit_clock(cx, crate::quit::FADE + crate::quit::KEY_POLL);
+    assert!(cx.update(|cx| view.read(cx).quit_notice.is_none()));
+    assert!(
+        cx.update(|cx| view.read(cx).stopping.is_none()),
+        "quitting while Q is held would send the shortcut to the next app"
+    );
+    down.set(false);
+    advance_quit_clock(cx, crate::quit::KEY_POLL);
+    assert!(cx.update(|cx| view.read(cx).stopping == Some(Shutdown::Quit)));
+    assert_eq!(tasks.len(), 1, "shutdown did not wait for admitted work");
+    commit.send(()).unwrap();
+    // GPUI's headless platform deliberately stubs OS Quit. The observable
+    // shutdown boundary here is the tracker becoming empty after the commit.
+    tasks.wait().await;
+    assert!(tasks.is_empty());
+}
+
+#[gpui_kit::test]
 async fn logout_waits_for_admitted_work_to_drain(cx: &mut TestAppContext) {
     let profile = tempfile::tempdir().unwrap();
     let config = Config::load_in(None, profile.path().into()).unwrap();
@@ -99,7 +245,7 @@ async fn logout_waits_for_admitted_work_to_drain(cx: &mut TestAppContext) {
     let view = view.unwrap();
     cx.update_window(window.into(), |_, window, cx| window.render_frame(cx))
         .unwrap();
-    cx.simulate_keystrokes(window.into(), "cmd-q");
+    cx.dispatch_keystroke(window.into(), Keystroke::parse("cmd-q").unwrap());
     assert!(cx.update(|cx| view.read(cx).quit_notice.is_some()));
     assert!(cx.update(|cx| view.read(cx).stopping.is_none()));
     let cancel = cx.update(|cx| view.read(cx).cancel.clone());
@@ -146,4 +292,39 @@ async fn wait_for(
             .await
             .expect("workspace closed before its expected state");
     }
+}
+
+fn quit_workspace(
+    cx: &mut TestAppContext,
+) -> (tempfile::TempDir, WindowHandle<Root>, Entity<Workspace>) {
+    let profile = tempfile::tempdir().unwrap();
+    let client = Client::desktop(Config::load_in(None, profile.path().into()).unwrap()).unwrap();
+    let runtime = Arc::new(tokio::runtime::Runtime::new().unwrap());
+    cx.update(gpui_kit::init);
+    cx.executor().allow_parking();
+    let mut view = None;
+    let window = cx.open_window(size(px(840.), px(600.)), |window, cx| {
+        let entity = cx.new(|cx| {
+            Workspace::new(
+                client,
+                runtime,
+                CancellationToken::new(),
+                TaskTracker::new(),
+                window,
+                cx,
+            )
+        });
+        view = Some(entity.clone());
+        Root::new(entity, window, cx)
+    });
+    cx.update_window(window.into(), |_, window, cx| window.render_frame(cx))
+        .unwrap();
+    (profile, window, view.unwrap())
+}
+
+fn advance_quit_clock(cx: &TestAppContext, elapsed: Duration) {
+    // Drain runnable tasks without advancing to future timers automatically.
+    while cx.executor().tick() {}
+    cx.executor().advance_clock(elapsed);
+    while cx.executor().tick() {}
 }

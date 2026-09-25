@@ -27,6 +27,7 @@ fn main() -> anyhow::Result<()> {
     };
     anyhow::ensure!(args.next().is_none(), "Unexpected desktop argument");
     let client = Client::desktop(Config::load(explicit.as_deref())?)?;
+    let shutdown_signal = shutdown_signal(&runtime)?;
     let cancel = CancellationToken::new();
     let stop = cancel.clone();
     let tasks = TaskTracker::new();
@@ -70,6 +71,12 @@ fn main() -> anyhow::Result<()> {
                         workspace::Workspace::new(client, runtime_ui, cancel, tasks, window, cx)
                     });
                     platform::install(&view, window, cx);
+                    cx.spawn(async move |cx| {
+                        if shutdown_signal.await.is_ok() {
+                            cx.update(|cx| cx.dispatch_action(&platform::Quit));
+                        }
+                    })
+                    .detach();
                     cx.new(|cx| Root::new(view, window, cx))
                 },
             )
@@ -83,4 +90,31 @@ fn main() -> anyhow::Result<()> {
     // Also cover OS termination paths: GPUI bounds its own quit observers.
     runtime.block_on(drain.wait());
     Ok(())
+}
+
+fn shutdown_signal(
+    runtime: &tokio::runtime::Runtime,
+) -> anyhow::Result<tokio::sync::oneshot::Receiver<()>> {
+    let _guard = runtime.enter();
+    let (sender, receiver) = tokio::sync::oneshot::channel();
+    #[cfg(unix)]
+    {
+        use tokio::signal::unix::{SignalKind, signal};
+        let mut terminate = signal(SignalKind::terminate())?;
+        let mut interrupt = signal(SignalKind::interrupt())?;
+        runtime.spawn(async move {
+            tokio::select! {
+                _ = terminate.recv() => {},
+                _ = interrupt.recv() => {},
+            }
+            let _ = sender.send(());
+        });
+    }
+    #[cfg(not(unix))]
+    runtime.spawn(async move {
+        if tokio::signal::ctrl_c().await.is_ok() {
+            let _ = sender.send(());
+        }
+    });
+    Ok(receiver)
 }

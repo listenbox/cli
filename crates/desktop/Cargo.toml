@@ -9,13 +9,14 @@ listenbox-sync-engine = { path = "../sync-engine" }
 gpui-kit = "=0.6.6"
 anyhow = "1"
 parking_lot = "0.12"
-tokio = { version = "1", features = ["rt-multi-thread", "sync", "time"] }
+tokio = { version = "1", features = ["rt-multi-thread", "signal", "sync", "time"] }
 tokio-util = "0.7"
 
 [target.'cfg(target_os = "macos")'.dependencies]
 tray-icon = { version = "=0.25.1", default-features = false }
 objc2 = "0.6"
-objc2-app-kit = { version = "0.3", features = ["NSApplication", "NSWindow"] }
+objc2-app-kit = { version = "0.3", features = ["NSApplication", "NSEvent", "NSWindow"] }
+objc2-core-graphics = { version = "0.3", default-features = false, features = ["CGEventSource", "CGEventTypes", "CGRemoteOperation"] }
 
 [dev-dependencies]
 gpui-kit = { version = "=0.6.6", features = ["test-support"] }

@@ -9,6 +9,10 @@ mod tokens;
 mod workspace {
     include!("../src/workspace.rs");
 
+    pub fn show_quit_notice(view: &mut Workspace, cx: &App) {
+        view.quit_notice = Some(crate::quit::QuitNotice::new(cx.background_executor().now()));
+    }
+
     pub fn populate(view: &mut Workspace, window: &mut Window, cx: &mut Context<Workspace>) {
         view.catalog.teams = vec![listenbox_sync_engine::publicapi::ClientTeam {
             id: "team_0123456789abcdef".into(),
@@ -68,13 +72,22 @@ fn main() -> anyhow::Result<()> {
     );
     cx.update(gpui_kit::init);
     std::fs::create_dir_all("dist/preview")?;
-    for (name, mode, width, populated) in [
-        ("welcome", ThemeMode::Light, 1080., false),
-        ("workspace-light", ThemeMode::Light, 1080., true),
-        ("workspace-dark", ThemeMode::Dark, 840., true),
+    for (name, mode, width, height, populated, quitting) in [
+        ("welcome", ThemeMode::Light, 1080., 760., false, false),
+        (
+            "workspace-light",
+            ThemeMode::Light,
+            1080.,
+            760.,
+            true,
+            false,
+        ),
+        ("workspace-dark", ThemeMode::Dark, 840., 760., true, false),
+        ("quit-light", ThemeMode::Light, 1080., 760., false, true),
+        ("quit-dark", ThemeMode::Dark, 840., 600., true, true),
     ] {
         let client = Client::desktop(Config::load_in(None, profile.path().into())?)?;
-        let handle = cx.open_window(size(px(width), px(760.)), |window, cx| {
+        let handle = cx.open_window(size(px(width), px(height)), |window, cx| {
             Theme::change(mode, Some(window), cx);
             tokens::project(cx);
             let view = cx.new(|cx| {
@@ -88,6 +101,9 @@ fn main() -> anyhow::Result<()> {
                 );
                 if populated {
                     workspace::populate(&mut view, window, cx);
+                }
+                if quitting {
+                    workspace::show_quit_notice(&mut view, cx);
                 }
                 view
             });

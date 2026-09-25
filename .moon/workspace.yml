@@ -4,7 +4,7 @@ projects:
   cli: crates/cli
   client-engine: crates/sync-engine
   client-youtubei: crates/youtubei
-  client-desktop: crates/desktop
+  desktop: crates/desktop
 versionConstraint: ">=2.5.4 <3.0.0"
 vcs:
   client: git

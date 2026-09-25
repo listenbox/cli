@@ -23,8 +23,17 @@ impl std::ops::Deref for Config {
 
 impl Config {
     pub fn load(explicit: Option<&Path>) -> Result<Self> {
-        let home = std::env::var_os("HOME").context("resolve user home directory")?;
-        Self::load_in(explicit, PathBuf::from(home).join(".config/listenbox"))
+        let directory = match std::env::var_os("LISTENBOX_PROFILE_DIR") {
+            Some(directory) => {
+                ensure!(!directory.is_empty(), "LISTENBOX_PROFILE_DIR is empty");
+                PathBuf::from(directory)
+            }
+            None => {
+                let home = std::env::var_os("HOME").context("resolve user home directory")?;
+                PathBuf::from(home).join(".config/listenbox")
+            }
+        };
+        Self::load_in(explicit, directory)
     }
 
     /// Resolve configuration within an isolated client profile (also used by E2E).

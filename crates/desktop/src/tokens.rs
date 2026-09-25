@@ -10,6 +10,9 @@ pub const BODY: f32 = 14.;
 pub const SPACE: f32 = 24.;
 pub const GAP: f32 = 12.;
 pub const RADIUS: f32 = 10.;
+pub const QUIT_HUD_WIDTH: f32 = 280.;
+pub const QUIT_HUD_RADIUS: f32 = 20.;
+pub const QUIT_SHORTCUT: f32 = 56.;
 
 #[derive(Clone, Copy)]
 pub struct Tokens {

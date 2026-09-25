@@ -382,6 +382,22 @@ durable work and surface that work is draining or saved. New native screens must
 represent empty, loading, authorization, partial failure, and stopped states
 explicitly.
 
+### Keyboard quit confirmation
+
+The first ⌘Q press displays a compact HUD centered over the entire window's
+content, without moving the rail, toolbar, or workspace. A 56px `⌘ Q` shortcut
+sits above the instruction in the standard body role. The HUD uses the action
+surface at 96% opacity, action ink, 24px padding, 12px spacing, a 280px width,
+and the shared system's 20px radius. These dimensions live in `tokens.rs`.
+There is no backdrop dimming, focus change, or full-width notification banner.
+The hint stays readable for two seconds, then fades out over 200ms without
+moving. Reduce Motion dismisses it without the fade. Its lifetime is independent
+of key-up delivery, and a new press replaces the previous timer. macOS key state
+confirms an actual hold or release, so a missed event cannot arm a stale quit.
+During shutdown the same HUD shows "Saving progress" at the native title size
+while admitted work drains. Light and dark captures live in the preview example
+as `quit-light.png` and `quit-dark.png`.
+
 ## Do's and Don'ts
 
 ### Do:

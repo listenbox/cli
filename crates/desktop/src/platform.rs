@@ -3,6 +3,30 @@ use gpui_kit::{App, Entity, Menu, MenuItem, Window, actions};
 
 actions!(listenbox, [Logout, Quit]);
 
+/// Query the actual shortcut key while its quit attempt is active. macOS can
+/// consume Command-key releases before they reach GPUI's focused view.
+pub fn quit_key_state() -> Option<Box<dyn Fn() -> bool>> {
+    #[cfg(target_os = "macos")]
+    {
+        use objc2_app_kit::{NSApplication, NSEventType};
+        use objc2_core_graphics::{CGEventFlags, CGEventSource, CGEventSourceStateID};
+        let app = NSApplication::sharedApplication(objc2::MainThreadMarker::new()?);
+        let event = app.currentEvent()?;
+        if event.r#type() != NSEventType::KeyDown {
+            return None;
+        }
+        // Use the event's hardware code, so this follows the active layout.
+        let key = event.keyCode();
+        Some(Box::new(move || {
+            let state = CGEventSourceStateID::CombinedSessionState;
+            CGEventSource::key_state(state, key)
+                && CGEventSource::flags_state(state).contains(CGEventFlags::MaskCommand)
+        }))
+    }
+    #[cfg(not(target_os = "macos"))]
+    None
+}
+
 pub fn install(view: &Entity<Workspace>, window: &mut Window, cx: &mut App) {
     install_actions(view, cx);
     window.on_window_should_close(cx, |_, cx| {
