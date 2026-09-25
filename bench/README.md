@@ -31,9 +31,9 @@ upload to the local API/storage, and publish the episode. Each import gets a fre
 video ID and show. The driver rejects failed imports, unpublished video, and runs
 that did not download the Opus fixture.
 
-Go is [3d0f569](https://github.com/listenbox/cli/commit/3d0f56927a9fc0ae8a97d1cb64d209505ea2ae14):
-**go-astiav 0.43.0 + kkdai/youtube 2.10.6**, from [PR #7](https://github.com/listenbox/cli/pull/7).
-Rust is [637e7c2](https://github.com/listenbox/cli/commit/637e7c28b36fe1fb7263726987e72f4caf7508ab):
+Go is [3d0f569](https://github.com/listenbox/client/commit/3d0f56927a9fc0ae8a97d1cb64d209505ea2ae14):
+**go-astiav 0.43.0 + kkdai/youtube 2.10.6**, from [PR #7](https://github.com/listenbox/client/pull/7).
+Rust is [637e7c2](https://github.com/listenbox/client/commit/637e7c28b36fe1fb7263726987e72f4caf7508ab):
 **ffmpeg-the-third 6.0.0 + YouTube.js 18.1.0 through rquickjs 0.11.0**, using
 [`listenbox/youtubei` at a394160](https://github.com/listenbox/youtubei/commit/a394160a92d3809bde4d4376d480373bc44ae82e)
 and the published CF-worker bundle.
@@ -63,7 +63,7 @@ latency, signature challenges, long-video memory growth, or languages in general
 ## Reproduce
 
 In a separate checkout of Go commit `3d0f569`, run `moon run cli:build`.
-Then, from the parent Listenbox workspace with this Rust CLI submodule:
+Then, from the parent Listenbox workspace with the Rust client monorepo submodule:
 
 ```sh
 LISTENBOX_BENCHMARK_GO=/absolute/go-checkout/dist/listenbox moon run api:benchmark-cli

@@ -1,0 +1,26 @@
+language: rust
+toolchains:
+  default: system
+dependsOn: ['client', 'client-engine']
+taskOptions:
+  cache: true
+fileGroups:
+  sources:
+    - src/**/*.rs
+    - tests/**/*
+    - examples/**/*.rs
+    - Cargo.toml
+tasks:
+  build:
+    deps: [client:prerequisites, client-engine:build]
+    inputs: ['@group(sources)', 'project://client?group=sources']
+    script: |-
+      set -euo pipefail
+      pkgx +llvm.org +cmake.org cargo build --locked -p listenbox
+      mkdir -p dist
+      cp ../../target/debug/listenbox dist/listenbox
+    outputs: [dist/listenbox]
+  test:
+    deps: [client:prerequisites]
+    inputs: ['@group(sources)', 'project://client?group=sources']
+    command: pkgx +llvm.org +cmake.org cargo test --locked -p listenbox

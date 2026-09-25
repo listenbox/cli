@@ -1,0 +1,44 @@
+language: rust
+toolchains:
+  default: system
+dependsOn: ['client', 'client-engine']
+taskOptions:
+  cache: true
+fileGroups:
+  sources:
+    - src/**/*.rs
+    - tests/**/*
+    - examples/**/*.rs
+    - Cargo.toml
+tasks:
+  preview:
+    deps: [client:prerequisites]
+    command: pkgx +llvm.org +cmake.org cargo run --locked -p listenbox-desktop --example preview
+    options:
+      runInCI: false
+      cache: false
+      runFromWorkspaceRoot: false
+  build:
+    deps: [client:prerequisites, client-engine:build]
+    inputs: ['@group(sources)', 'project://client?group=sources']
+    script: |-
+      set -euo pipefail
+      pkgx +llvm.org +cmake.org cargo build --locked -p listenbox-desktop
+      mkdir -p dist
+      cp ../../target/debug/listenbox-desktop dist/listenbox-desktop
+    outputs: [dist/listenbox-desktop]
+  test:
+    deps: [client:prerequisites]
+    inputs: ['@group(sources)', 'project://client?group=sources']
+    command: pkgx +llvm.org +cmake.org cargo test --locked -p listenbox-desktop
+  build-e2e:
+    deps: [client:prerequisites]
+    inputs: ['@group(sources)', 'project://client?group=sources']
+    script: |-
+      set -euo pipefail
+      mkdir -p dist
+      pkgx +llvm.org +cmake.org cargo test --locked -p listenbox-desktop --no-run --message-format=json > dist/test-build.json
+      executable="$(pkgx jq -r 'select(.reason == "compiler-artifact" and .profile.test and .executable != null) | .executable' dist/test-build.json)"
+      test -n "$executable"
+      cp "$executable" dist/listenbox-desktop-e2e
+    outputs: [dist/listenbox-desktop-e2e]

@@ -1,59 +1,80 @@
-# Listenbox CLI
+# Listenbox client
 
-Publish podcasts and manage Listenbox shows, episodes, and members from your terminal.
+A Rust monorepo for the Listenbox desktop app, CLI and shared synchronization engine.
 
-## Build and install
+| Crate | Responsibility |
+| --- | --- |
+| `crates/desktop` | Native GPUI Kit interface, live teams and podcasts, transfer progress |
+| `crates/cli` | Commands, terminal progress and foreground watch service |
+| `crates/sync-engine` | Authentication, generated public API, reconciliation, durable transfers, FFmpeg and SQLite |
+| `crates/youtubei` | Embedded YouTube.js bindings, checked-in Rust source |
 
-Install Rust (rustup), [Nub](https://nubjs.com), [Moon](https://moonrepo.dev),
-[pkgx](https://pkgx.sh), a C compiler, make, and tar. Rust is pinned by `rust-toolchain.toml`.
+## Build
+
+Install Rust via rustup, [Moon](https://moonrepo.dev), [pkgx](https://pkgx.sh), a C compiler, make and tar. Rust is pinned in `rust-toolchain.toml`. No JavaScript runtime or package manager is needed in this repository.
 
 ```sh
-git clone https://github.com/listenbox/cli.git
-cd cli
-nub install --frozen-lockfile
-moon run cli:package
-mkdir -p "$HOME/.local/bin"
-cp dist/release/listenbox "$HOME/.local/bin/listenbox"
+git clone https://github.com/listenbox/client.git
+cd client
+moon run client:build
+moon ci
 ```
 
-Put `$HOME/.local/bin` on your PATH. `dist/listenbox.tar.gz` contains the release
-executable and license notices. The executable embeds YouTube.js in QuickJS and
-links FFmpeg libraries through `ffmpeg-the-third`. The installed CLI is self-contained.
+The app is `crates/desktop/dist/listenbox-desktop`; the terminal executable is `crates/cli/dist/listenbox`. `moon run client:package` packages release binaries and notices. `moon run client:dmg` builds the macOS application and DMG.
 
-FFmpeg 9.0.2 is built from a checksum-verified source archive with the codecs needed
-for AAC audio and AVC video packages. See `prepare-ffmpeg.ts` for its configuration
-and the packaged `FFmpeg-NOTICE.txt` for source and LGPL terms.
+FFmpeg 9.0.2 is built from verified source by `tools/native-ffmpeg.rs`, linked with `ffmpeg-the-third`, and never run as a subprocess. The physical `youtubei` crate embeds a verified upstream bundle in QuickJS. Both applications are self-contained. See `THIRD-PARTY-NOTICES.txt` and the packaged FFmpeg source/license notice.
 
-YouTube extraction uses the typed Rust bindings in
-[listenbox/youtubei](https://github.com/listenbox/youtubei), pinned by commit in
-Cargo.toml and Cargo.lock. That crate downloads and verifies the published upstream CF-worker bundle during
-Cargo builds. Nub and ZX run the build and benchmark scripts. Playlist policy, media
-selection, HTTP cancellation and upload cleanup remain in Rust here.
+## Install
 
-## Use
+macOS downloads are attached to tagged [GitHub releases](https://github.com/listenbox/client/releases). Open the DMG and drag Listenbox to Applications, or extract the command-line executable from the matching architecture archive. The release workflow builds Apple Silicon and Intel packages. Current bundles are ad-hoc signed; Developer ID signing and Apple notarization require distribution credentials. Local builds can set `LISTENBOX_SIGNING_IDENTITY` for a configured Developer ID certificate.
+
+## Connect and sync
+
+The desktop's sign-in button opens Listenbox in your browser. `listenbox login` uses the same authorization flow. Both save and read one private credential in `~/.config/listenbox/auth.json`; signing in through either authorizes both.
 
 ```sh
 listenbox login
-listenbox auth status
 listenbox shows list
-listenbox shows create --title "Field notes" --slug field-notes --type video --language en
-listenbox episodes create --show field-notes --title "A new episode" --file episode.mp4
-listenbox episodes list --show field-notes
-listenbox import --slug my-show https://example.com/feed.xml
-listenbox import --slug my-videos 'https://www.youtube.com/playlist?list=PLAYLIST_ID'
-listenbox members list
-listenbox help
+listenbox shows create --title "Field notes" --slug field-notes --type audio --language en
+listenbox shows source --show field-notes --youtube 'https://www.youtube.com/playlist?list=PLAYLIST_ID'
+listenbox shows sync youtube --show field-notes
+listenbox shows sync youtube --show field-notes --watch
+listenbox shows source --show field-notes --disconnect
 ```
 
-Source uploads default to a draft. Add `--publication publish` to publish after
-processing. A local resume record makes interrupted source uploads resumable by
-running the same command again. YouTube downloads and media preparation happen
-locally; only the finished MP4 and HLS package is uploaded. Failed or interrupted
-package uploads request server cleanup, preserving already completed episodes.
+An active paid audio or video plan is required for synchronization. Teams and accessible shows load live, including team membership and direct collaboration. A source cannot coexist with a YouTube publishing destination; PostgreSQL enforces both directions. The backend checks permissions and video allowance when admitting work.
 
-`login` prints a URL to approve in your browser. Credentials are atomically stored
-in `~/.config/listenbox/auth.json` with private permissions. Optional configuration
-lives in `~/.config/listenbox/config.yaml`, or at `--config PATH`:
+The engine completes the entire playlist scan before reconciling canonical item URLs. New videos become episodes. Removed videos are deleted only when owned by the current playlist. Unavailable videos and episodes from other sources are preserved. Playlist order becomes RSS order; real publication dates stay intact. Reordering does not repeat media work.
+
+For creator-managed podcasts, read or change order through the same ordering API:
+
+```sh
+listenbox shows order --show field-notes
+listenbox shows order --show field-notes --episode ep_0123456789abcdef --episode ep_fedcba9876543210
+```
+
+Supplied episodes move to the front in sequence; other episodes retain their relative order. Disconnect a source before managing that podcast's order by hand.
+
+## Interrupted work
+
+Both interfaces use the engine's persistent sync path. It opens `~/.config/listenbox/sync.sqlite` only for sync work and keeps media under `~/.config/listenbox/transfers`. Refinery applies embedded SQL migrations with strict history validation. Neither interface accesses SQLite directly.
+
+One writer connection serializes changes; pooled read-only connections read concurrently through WAL. FULL synchronous commits and macOS full-fsync preserve acknowledged checkpoints. Closing the desktop window leaves sync running. The menu-bar icon reopens it; Log out and Quit cancel active work and wait for admitted writes and processing to finish. A second ⌘Q press within one second or holding it for two seconds confirms keyboard quit; quitting waits for key release. Log out removes the shared credential, keeping resumable work.
+
+Verified download ranges, prepared files, transfer UUIDs, upload sessions and acknowledged parts survive interruption. Restarting checks saved work against the live backend before resuming. An OS lock per server and show prevents simultaneous CLI and desktop work on that show. Slots adapt to measured throughput across podcasts. Pausing stops new admissions; stopping a sync preserves its work.
+
+`--watch` scans immediately, then hourly, and handles SIGINT/SIGTERM. Desktop watches share one hourly clock. The CLI stays in the foreground, suitable for a user systemd service:
+
+```ini
+[Service]
+ExecStart=%h/.local/bin/listenbox shows sync youtube --show field-notes --watch
+Restart=on-failure
+RestartSec=10
+```
+
+## Configuration and tests
+
+Both applications read `~/.config/listenbox/config.yaml`, or accept `--config PATH`. Release defaults are:
 
 ```yaml
 api_origin: https://v1.listenbox.app
@@ -61,27 +82,8 @@ dashboard_origin: https://web.listenbox.app
 print_trace_ids: false
 ```
 
-## Development
+E2E tests use the same code with isolated homes and explicit local configuration. GPUI Kit tests interact with real controls in a headless window. The integrated suite boots the API, worker and local external fixtures; the desktop flow needs no Chrome process.
 
-```sh
-moon run cli:check
-```
+Generated API and configuration modules are committed in `sync-engine`, so this monorepo builds independently. The parent workspace regenerates them through Moon from `packages/openapi/spec/public.responsible.ts` and `client.responsible.ts` before client builds. Its integration command is `moon run api:test-e2e`; both workspaces use `moon ci`.
 
-The public API client in `src/publicapi/mod.rs` is generated by
-[Oasmith](https://github.com/responsibleapi/oasmith) and committed so this repository
-builds independently. In the Listenbox workspace, `openapi:generate-public-rust-client`
-regenerates it from the canonical public contract before building.
-`openapi:generate-cli-rust-structs` generates `src/cliconfig/mod.rs` from
-`cli.responsible.ts`; YAML is decoded into that generated `CLIConfig`, then both
-origins are validated. No schema interpreter runs during startup. Integrated
-coverage lives in `apps/api/e2e` in that workspace and runs this Rust executable
-against deterministic local services, including YouTube responses.
-
-Production origins and disabled trace-ID output are compiled into the same binary
-used in E2E tests. Tests supply an isolated YAML config with their dynamic service
-origins and `print_trace_ids: true`; no test-only executable or Cargo feature is
-required.
-
-The historical [YouTube import benchmark](bench/README.md) compares the earlier Rust bridge
-against Go with statically linked go-astiav and kkdai/youtube, measuring the full
-import's wall time, CPU time, CPU utilization, peak RAM, and binary size.
+See `crates/desktop/DESIGN.md` for native tokens and component conventions, and [bench/README.md](bench/README.md) for the historical import benchmark.

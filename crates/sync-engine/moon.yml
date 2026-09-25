@@ -1,0 +1,23 @@
+language: rust
+toolchains:
+  default: system
+dependsOn: ['client', 'client-youtubei']
+taskOptions:
+  cache: true
+fileGroups:
+  sources:
+    - src/**/*.rs
+    - tests/**/*
+    - examples/**/*.rs
+    - Cargo.toml
+tasks:
+  build:
+    deps: [client:prerequisites, client-youtubei:build]
+    inputs: ['@group(sources)', 'project://client?group=sources']
+    script: |-
+      set -euo pipefail
+      pkgx +llvm.org +cmake.org cargo build --locked -p listenbox-sync-engine
+  test:
+    deps: [client:prerequisites]
+    inputs: ['@group(sources)', 'project://client?group=sources']
+    command: pkgx +llvm.org +cmake.org cargo test --locked -p listenbox-sync-engine

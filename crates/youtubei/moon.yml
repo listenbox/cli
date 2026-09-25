@@ -1,0 +1,24 @@
+language: rust
+toolchains:
+  default: system
+dependsOn: ['client']
+taskOptions:
+  cache: true
+fileGroups:
+  sources:
+    - src/**/*.rs
+    - tests/**/*
+    - examples/**/*.rs
+    - build.rs
+    - Cargo.toml
+tasks:
+  build:
+    deps: [client:prerequisites]
+    inputs: ['@group(sources)', 'project://client?group=sources']
+    script: |-
+      set -euo pipefail
+      pkgx +llvm.org +cmake.org cargo build --locked -p youtubei
+  test:
+    deps: [client:prerequisites]
+    inputs: ['@group(sources)', 'project://client?group=sources']
+    command: pkgx +llvm.org +cmake.org cargo test --locked -p youtubei

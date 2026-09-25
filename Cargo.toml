@@ -1,35 +1,21 @@
-[package]
-name = "listenbox"
+[workspace]
+resolver = "3"
+members = ["crates/youtubei", "crates/sync-engine", "crates/cli", "crates/desktop"]
+default-members = ["crates/cli", "crates/desktop"]
+
+[workspace.package]
 version = "0.1.0"
 edition = "2024"
 rust-version = "1.98"
-description = "Publish and manage podcasts with Listenbox"
 license = "MIT"
-publish = false
+repository = "https://github.com/listenbox/client"
 
-[dependencies]
-anyhow = "1"
-ffmpeg = { package = "ffmpeg-the-third", version = "=6.0.0", default-features = false, features = ["static", "format", "software-resampling"] }
-chrono = { version = "0.4", default-features = false, features = ["std"] }
-clap = { version = "4", features = ["derive"] }
-futures-util = "0.3"
-hex = "0.4"
-image = { version = "0.25", default-features = false, features = ["jpeg", "png"] }
-reqwest = { version = "0.12", default-features = false, features = ["json", "stream", "rustls-tls-native-roots"] }
-serde = { version = "1", features = ["derive"] }
-serde_json = "1"
-serde_yaml = "0.9"
-sha2 = "0.10"
-tempfile = "3"
-tokio = { version = "1", features = ["rt", "macros", "signal", "process", "fs", "io-util", "time"] }
-tokio-util = { version = "0.7", features = ["io", "rt"] }
-url = "2"
-uuid = { version = "1", features = ["v4"] }
-youtubei = { git = "https://github.com/listenbox/youtubei.git", rev = "a394160a92d3809bde4d4376d480373bc44ae82e" }
+[workspace.lints.rust]
+unsafe_op_in_unsafe_fn = "deny"
+
+[profile.dev]
+debug = 0
 
 [profile.release]
 strip = true
 lto = "thin"
-
-[lints.rust]
-unsafe_op_in_unsafe_fn = "deny"

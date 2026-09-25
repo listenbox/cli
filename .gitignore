@@ -3,3 +3,5 @@
 /dist/
 /.moon/cache/
 /node_modules/
+
+/crates/*/dist/

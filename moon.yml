@@ -1,122 +1,91 @@
 language: rust
 toolchains:
   default: system
-taskOptions:
-  cache: true
+tags: [client-workspace]
 fileGroups:
   sources:
+    - crates/**/*.rs
+    - crates/**/*.sql
+    - crates/**/Cargo.toml
+    - tools/**/*.rs
+    - crates/desktop/assets/**/*
     - Cargo.toml
     - Cargo.lock
     - rust-toolchain.toml
-    - src/**/*.rs
-    - prepare-ffmpeg.ts
-    - package.json
-    - nub.lock
     - .cargo/config.toml
     - moon.yml
+taskOptions:
+  cache: true
 tasks:
-  benchmark-measurer:
-    description: Build the Linux child-process accounting wrapper for API import benchmarks.
+  native-ffmpeg:
+    inputs: [tools/native-ffmpeg.rs, rust-toolchain.toml]
     script: |-
       set -euo pipefail
+      mkdir -p .cache
+      rustc --edition 2024 tools/native-ffmpeg.rs -o .cache/native-ffmpeg
+      .cache/native-ffmpeg
+    outputs: [.cache/ffmpeg/**/*]
+  prerequisites:
+    deps: [~:native-ffmpeg]
+    inputs: []
+    options:
+      internal: true
+  lint:
+    deps: [~:prerequisites]
+    inputs: ["@group(sources)"]
+    script: |-
+      set -euo pipefail
+      cargo fmt --all
+      rustfmt --edition 2024 tools/*.rs
+      pkgx +llvm.org +cmake.org cargo clippy --locked --workspace --all-targets -- -D warnings
+  build:
+    deps: [cli:build, client-desktop:build]
+    inputs: []
+  check:
+    deps: [~:lint, cli:test, client-engine:test, client-youtubei:test, client-desktop:test, ~:build]
+    inputs: []
+    options:
+      runInCI: false
+  benchmark-measurer:
+    script: |-
       mkdir -p .cache
       cc -O2 -Wall -Wextra -Werror bench/measure.c -o .cache/cli-measure
     inputs: [bench/measure.c]
     outputs: [.cache/cli-measure]
     options:
       runInCI: false
-  native-ffmpeg:
-    description: Build pinned FFmpeg 9 libraries for static linking through ffmpeg-the-third.
-    inputs:
-      - prepare-ffmpeg.ts
-      - package.json
-      - nub.lock
-    command: nub prepare-ffmpeg.ts
-    outputs:
-      - .cache/ffmpeg/**/*
-  prerequisites:
-    deps:
-      - ~:native-ffmpeg
-    inputs: []
+  package:
+    deps: [~:build-release]
+    inputs: ["@group(sources)", LICENSE, THIRD-PARTY-NOTICES.txt]
+    script: |-
+      set -euo pipefail
+      cp .cache/ffmpeg/NOTICE.txt dist/release/FFmpeg-NOTICE.txt
+      COPYFILE_DISABLE=1 tar -czf dist/listenbox-client.tar.gz -C dist/release listenbox listenbox-desktop FFmpeg-NOTICE.txt -C ../.. LICENSE THIRD-PARTY-NOTICES.txt
+    outputs: [dist/listenbox-client.tar.gz]
     options:
-      internal: true
-  build:
-    deps:
-      - ~:prerequisites
-    inputs:
-      - "@group(sources)"
-    script: |-
-      set -euo pipefail
-      pkgx +llvm.org +cmake.org cargo build --locked
-      mkdir -p dist
-      cp target/debug/listenbox dist/listenbox
-      cp .cache/ffmpeg/NOTICE.txt dist/FFmpeg-NOTICE.txt
-    outputs:
-      - dist/listenbox
-      - dist/FFmpeg-NOTICE.txt
-  lint:
-    deps:
-      - ~:prerequisites
-    inputs:
-      - "@group(sources)"
-    script: |-
-      set -euo pipefail
-      cargo fmt --all
-      pkgx +llvm.org +cmake.org cargo clippy --locked --all-targets -- -D warnings
-  test:
-    deps:
-      - ~:prerequisites
-    inputs:
-      - "@group(sources)"
-    command: pkgx +llvm.org +cmake.org cargo test --locked
-  typecheck:
-    inputs:
-      - prepare-ffmpeg.ts
-      - package.json
-      - nub.lock
-      - tsconfig.json
-    command: nubx tsc --project tsconfig.json
-  smoke:
-    deps:
-      - ~:build
-    inputs:
-      - "@group(sources)"
-    command: dist/listenbox help
+      runInCI: false
   build-release:
     deps: [~:prerequisites]
-    inputs: ["@group(sources)"]
+    inputs: ['@group(sources)']
     script: |-
       set -euo pipefail
-      pkgx +llvm.org +cmake.org cargo build --locked --release
+      pkgx +llvm.org +cmake.org cargo build --locked --release -p listenbox -p listenbox-desktop
       mkdir -p dist/release
-      cp target/release/listenbox dist/release/listenbox
-      cp .cache/ffmpeg/NOTICE.txt dist/release/FFmpeg-NOTICE.txt
-    outputs:
-      - dist/release/listenbox
-      - dist/release/FFmpeg-NOTICE.txt
+      cp target/release/listenbox target/release/listenbox-desktop dist/release/
+    outputs: [dist/release/listenbox, dist/release/listenbox-desktop]
     options:
       runInCI: false
-  package:
-    deps:
-      - ~:build-release
-    inputs:
-      - "@group(sources)"
-      - LICENSE
-      - THIRD-PARTY-NOTICES.txt
-    script: tar -czf dist/listenbox.tar.gz -C dist/release listenbox FFmpeg-NOTICE.txt -C ../.. LICENSE THIRD-PARTY-NOTICES.txt
-    outputs:
-      - dist/listenbox.tar.gz
+  dmg:
+    deps: [~:build-release]
+    inputs: ['@group(sources)', LICENSE, THIRD-PARTY-NOTICES.txt]
+    script: |-
+      set -euo pipefail
+      rustc --edition 2024 tools/package-macos.rs -o .cache/package-macos
+      .cache/package-macos
+    outputs: [dist/macos/*.dmg]
     options:
-      runInCI: false
-  check:
-    deps:
-      - ~:lint
-      - ~:typecheck
-      - ~:test
-      - ~:smoke
-      - ~:package
-    inputs: []
-    options:
+      os: macos
+      cache: false
       runInCI: false
   outdated:
     command: cargo update --dry-run

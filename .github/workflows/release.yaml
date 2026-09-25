@@ -1,0 +1,58 @@
+name: Release macOS clients
+on:
+  push:
+    tags: ['v*']
+permissions:
+  contents: read
+jobs:
+  package:
+    strategy:
+      fail-fast: false
+      matrix:
+        runner: [macos-15, macos-15-intel]
+    runs-on: ${{ matrix.runner }}
+    env:
+      MACOSX_DEPLOYMENT_TARGET: '13.0'
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+      - uses: pkgxdev/setup@v5
+      - uses: moonrepo/setup-toolchain@v0
+        with:
+          moon-version: '2.5.5'
+      - run: rustup toolchain install 1.98.1 --profile minimal --component clippy,rustfmt
+      - uses: actions/cache@v6
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+            .cache/ffmpeg
+            ~/.pkgx
+          key: release-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('Cargo.lock', 'rust-toolchain.toml', 'tools/native-ffmpeg.rs') }}
+      - run: moon ci
+      - run: moon run client:dmg client:package
+      - run: mv dist/listenbox-client.tar.gz "dist/listenbox-client-macos-$(uname -m).tar.gz"
+      - uses: actions/upload-artifact@v7
+        with:
+          name: macos-${{ runner.arch }}
+          path: |
+            dist/macos/*.dmg
+            dist/*.tar.gz
+          if-no-files-found: error
+  publish:
+    needs: package
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v8
+        with:
+          path: artifacts
+          merge-multiple: true
+      - name: Publish downloadable clients
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ github.ref_name }}
+        run: gh release create "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" --verify-tag --generate-notes artifacts/*/*.dmg artifacts/*.tar.gz

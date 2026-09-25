@@ -1,6 +1,10 @@
-defaultProject: cli
+defaultProject: client
 projects:
-  cli: .
+  client: .
+  cli: crates/cli
+  client-engine: crates/sync-engine
+  client-youtubei: crates/youtubei
+  client-desktop: crates/desktop
 versionConstraint: ">=2.5.4 <3.0.0"
 vcs:
   client: git

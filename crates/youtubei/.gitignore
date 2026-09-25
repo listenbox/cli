@@ -1,0 +1,5 @@
+/target/
+/generated/
+/node_modules/
+/.moon/cache/
+__pycache__/

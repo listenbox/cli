@@ -1,0 +1,380 @@
+use crate::{
+    api::{Api, string},
+    database::Database,
+    downloads::DownloadManager,
+    events::Events,
+    innertube::YouTube,
+    publicapi as p,
+};
+use anyhow::{Context, Result, bail, ensure};
+use futures_util::{StreamExt, stream};
+use sha2::{Digest, Sha256};
+use std::{
+    collections::{HashMap, HashSet},
+    fs::OpenOptions,
+    time::Duration,
+};
+
+pub const WATCH_INTERVAL: Duration = Duration::from_secs(3600);
+
+#[derive(Default, Clone, Debug)]
+pub struct Report {
+    pub added: usize,
+    pub removed: usize,
+    pub unchanged: usize,
+    pub reordered: bool,
+}
+
+#[derive(Clone)]
+pub struct Engine {
+    pub downloads: DownloadManager,
+    journal: std::sync::Arc<parking_lot::Mutex<Option<Database>>>,
+    scan_anchor: tokio::time::Instant,
+}
+
+impl Default for Engine {
+    fn default() -> Self {
+        Self {
+            downloads: DownloadManager::default(),
+            journal: Default::default(),
+            scan_anchor: tokio::time::Instant::now(),
+        }
+    }
+}
+
+pub async fn inventory(api: &Api, slug: &str) -> Result<p::SyncInventory> {
+    let mut cursor = None;
+    let mut cursors = HashSet::new();
+    let mut complete: Option<p::SyncInventory> = None;
+    loop {
+        let result = api
+            .json(
+                api.client().get_sync_inventory(p::GetSyncInventoryParams {
+                    show_slug: slug.into(),
+                    cursor,
+                    limit: Some(500),
+                }),
+                &[200],
+            )
+            .await?;
+        let mut page: p::SyncInventory = serde_json::from_value(result)?;
+        ensure!(
+            page.show.slug == slug,
+            "Sync inventory returned a different show"
+        );
+        cursor = page.next_cursor.take();
+        match &mut complete {
+            Some(result) => {
+                ensure!(
+                    result.show.id == page.show.id
+                        && result.show.youtube_source_url == page.show.youtube_source_url,
+                    "Show source changed while reading inventory"
+                );
+                result.episodes.extend(page.episodes);
+            }
+            None => complete = Some(page),
+        }
+        match &cursor {
+            None => return complete.context("Missing sync inventory"),
+            Some(cursor) => ensure!(
+                cursors.insert(cursor.clone()),
+                "Sync inventory repeated a cursor"
+            ),
+        }
+    }
+}
+
+pub async fn set_source(api: &Api, slug: &str, source: Option<String>) -> Result<p::Show> {
+    Ok(serde_json::from_value(
+        api.json(
+            api.client().set_you_tube_source(p::SetYouTubeSourceParams {
+                show_slug: slug.into(),
+                body: p::SetYouTubeSource { source_url: source },
+            }),
+            &[200],
+        )
+        .await?,
+    )?)
+}
+
+impl Engine {
+    fn next_scan_at(&self) -> tokio::time::Instant {
+        let periods = self.scan_anchor.elapsed().as_secs() / WATCH_INTERVAL.as_secs();
+        self.scan_anchor + Duration::from_secs((periods + 1) * WATCH_INTERVAL.as_secs())
+    }
+
+    pub async fn once(&self, api: &Api, slug: &str) -> Result<Report> {
+        std::fs::create_dir_all(&api.config.directory)?;
+        let lock_key = hex::encode(Sha256::digest(format!("{}\0{slug}", api.config.api_origin)));
+        let lock = OpenOptions::new()
+            .create(true)
+            .truncate(false)
+            .read(true)
+            .write(true)
+            .open(api.config.directory.join(format!("sync-{lock_key}.lock")))?;
+        lock.try_lock()
+            .context("Another client is already syncing this show on this computer")?;
+        let journal = {
+            let mut saved = self.journal.lock();
+            if saved.is_none() {
+                *saved = Some(Database::open(&api.config.directory)?);
+            }
+            saved.as_ref().context("Missing sync journal")?.clone()
+        };
+        let before = inventory(api, slug).await?;
+        let collection = before
+            .show
+            .youtube_source_url
+            .as_deref()
+            .context("This show has no YouTube source. Configure its playlist first.")?;
+        ensure!(
+            !before.show.youtube_destination,
+            "A show cannot have both a YouTube source and destination"
+        );
+        let playlist = url::Url::parse(collection)?
+            .query_pairs()
+            .find(|(key, _)| key == "list")
+            .map(|(_, id)| id.into_owned())
+            .context("Show source has no playlist ID")?;
+        let youtube = YouTube::new(api).await?;
+        let snapshot = youtube.snapshot(api, &playlist).await?;
+        let mut unique = HashSet::new();
+        let ordered_urls: Vec<String> = snapshot
+            .present
+            .iter()
+            .filter(|id| unique.insert(*id))
+            .map(|id| format!("https://www.youtube.com/watch?v={id}"))
+            .collect();
+        journal.snapshot(&api.config.api_origin, slug, collection, &ordered_urls)?;
+        let remote: HashSet<String> = snapshot
+            .present
+            .iter()
+            .map(|id| format!("https://www.youtube.com/watch?v={id}"))
+            .collect();
+        for episode in &before.episodes {
+            journal.forget(&api.config.api_origin, slug, &episode.source_url)?;
+        }
+        let existing: HashMap<&str, &p::SyncEpisode> = before
+            .episodes
+            .iter()
+            .map(|episode| (episode.source_url.as_str(), episode))
+            .collect();
+        let additions: Vec<_> = snapshot
+            .playable
+            .iter()
+            .filter(|id| {
+                !existing.contains_key(format!("https://www.youtube.com/watch?v={id}").as_str())
+            })
+            .cloned()
+            .collect();
+        // Persist the whole admitted queue before its first external effect.
+        for id in &additions {
+            journal.operation(
+                &api.config.api_origin,
+                slug,
+                &format!("https://www.youtube.com/watch?v={id}"),
+                collection,
+            )?;
+        }
+        let transfers = self.downloads.enqueue(
+            slug,
+            &before.show.title,
+            &additions
+                .iter()
+                .map(|id| (id.clone(), format!("YouTube · {id}")))
+                .collect::<Vec<_>>(),
+        );
+        let audio = before.show.source_kind == p::ShowSourceKind::Audio;
+        let mut work = stream::iter(additions.iter().zip(transfers).map(|(id, transfer)| {
+            let youtube = &youtube;
+            let journal = &journal;
+            async move {
+                let active = match api.wait(async { Ok(transfer.acquire().await) }).await {
+                    Ok(active) => active,
+                    Err(error) => {
+                        transfer.phase(crate::downloads::Phase::Failed);
+                        transfer.error(&error);
+                        return Err(error);
+                    }
+                };
+                let result = crate::youtube::import_video(
+                    api,
+                    youtube,
+                    crate::youtube::VideoImport {
+                        slug,
+                        id,
+                        collection: Some(collection),
+                        transfer: Some(&transfer),
+                        journal: Some(journal),
+                        audio,
+                    },
+                )
+                .await;
+                let outcome = result
+                    .as_ref()
+                    .map(|_| ())
+                    .map_err(|error| anyhow::anyhow!("{error:#}"));
+                active.finish(&outcome);
+                result
+            }
+        }))
+        .buffer_unordered(crate::downloads::MAX_TRANSFERS);
+        let mut failures = Vec::new();
+        let mut report = Report {
+            unchanged: existing.keys().filter(|url| remote.contains(**url)).count(),
+            ..Report::default()
+        };
+        while let Some(result) = work.next().await {
+            match result {
+                Ok(()) => report.added += 1,
+                Err(error) => failures.push(format!("{error:#}")),
+            }
+        }
+        if !failures.is_empty() {
+            bail!(
+                "{} transfer(s) failed: {}",
+                failures.len(),
+                failures.join("; ")
+            );
+        }
+
+        for episode in &before.episodes {
+            if episode.source_collection_url.as_deref() == Some(collection)
+                && !remote.contains(&episode.source_url)
+            {
+                delete(api, slug, collection, &episode.id).await?;
+                journal.forget(&api.config.api_origin, slug, &episode.source_url)?;
+                report.removed += 1;
+            }
+        }
+        let after = inventory(api, slug).await?;
+        ensure!(
+            after.show.youtube_source_url.as_deref() == Some(collection),
+            "Show source changed during sync"
+        );
+        let episodes: HashMap<_, _> = after
+            .episodes
+            .iter()
+            .map(|episode| (episode.source_url.as_str(), episode))
+            .collect();
+        let ordered: Vec<_> = ordered_urls
+            .iter()
+            .filter_map(|url| episodes.get(url.as_str()))
+            .collect();
+        if ordered
+            .iter()
+            .enumerate()
+            .any(|(position, episode)| episode.position != Some(position as i64))
+        {
+            set_order(
+                api,
+                slug,
+                ordered.iter().map(|episode| episode.id.clone()).collect(),
+                Some(collection.into()),
+            )
+            .await?;
+            report.reordered = true;
+        }
+        Ok(report)
+    }
+
+    pub async fn watch(
+        &self,
+        api: &Api,
+        slug: &str,
+        mut report: impl FnMut(&Report),
+    ) -> Result<()> {
+        loop {
+            if api.cancel.is_cancelled() {
+                return Ok(());
+            }
+            let result = self.once(api, slug).await;
+            if api.cancel.is_cancelled() {
+                return Ok(());
+            }
+            report(&result?);
+            tokio::select! { _ = api.cancel.cancelled() => return Ok(()), _ = tokio::time::sleep_until(self.next_scan_at()) => {} }
+        }
+    }
+}
+
+pub async fn set_order(
+    api: &Api,
+    slug: &str,
+    episode_ids: Vec<String>,
+    source_collection_url: Option<String>,
+) -> Result<p::EpisodeOrder> {
+    Ok(serde_json::from_value(
+        api.json(
+            api.client().set_episode_order(p::SetEpisodeOrderParams {
+                show_slug: slug.into(),
+                body: p::SetEpisodeOrder {
+                    episode_ids,
+                    source_collection_url,
+                },
+            }),
+            &[200],
+        )
+        .await?,
+    )?)
+}
+
+async fn delete(api: &Api, slug: &str, source: &str, episode: &str) -> Result<()> {
+    let result = api
+        .json(
+            api.client()
+                .create_sync_episode_deletion(p::CreateSyncEpisodeDeletionParams {
+                    show_slug: slug.into(),
+                    episode_id: episode.into(),
+                    body: p::SyncEpisodeDeletion {
+                        source_collection_url: source.into(),
+                    },
+                }),
+            &[202],
+        )
+        .await?;
+    let mut events = Events::open(
+        api,
+        api.client()
+            .episode_deletion_events(p::EpisodeDeletionEventsParams {
+                episode_deletion_run_id: string(&result, "episode_deletion_run_id")?.into(),
+            }),
+        false,
+    )
+    .await?;
+    loop {
+        let event = events.next(api).await?;
+        if string(&event, "type")? != "terminal" {
+            continue;
+        }
+        ensure!(
+            string(&event, "episode_id")? == episode,
+            "Deletion completed for a different episode"
+        );
+        ensure!(
+            string(&event, "status")? == "completed",
+            "Episode deletion failed"
+        );
+        return Ok(());
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[tokio::test(start_paused = true)]
+    async fn all_shows_use_one_hourly_clock_and_skip_missed_ticks() {
+        let engine = Engine::default();
+        let other_show = engine.clone();
+        let first = engine.next_scan_at();
+        assert_eq!(
+            first - tokio::time::Instant::now(),
+            Duration::from_secs(3600)
+        );
+        tokio::time::advance(Duration::from_secs(25)).await;
+        assert_eq!(other_show.next_scan_at(), first);
+        tokio::time::advance(Duration::from_secs(7200)).await;
+        assert_eq!(engine.next_scan_at(), first + Duration::from_secs(7200));
+    }
+}

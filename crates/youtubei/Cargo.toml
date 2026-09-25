@@ -1,0 +1,36 @@
+[package]
+name = "youtubei"
+version = "0.1.0"
+edition = "2024"
+description = "Persistent Rust bindings to youtubei.js on embedded QuickJS"
+license = "MIT"
+repository = "https://github.com/listenbox/client"
+include = ["/src/**", "/build.rs", "/examples/**", "/README.md", "/LICENSE", "/THIRD-PARTY-NOTICES.txt", "/Cargo.toml", "/Cargo.lock"]
+
+[package.metadata.youtubei]
+version = "18.1.0"
+archive-sha256 = "e42d35258a29eadff84b2b9bf1f3a7b4d56f037bd5243cb4c9fc6fbb7cf3d387"
+bundle-sha256 = "0125535bab0cd963dde0994bade8c1b0e719ff03edb4072a83bab8a14a2e38ae"
+
+
+[dependencies]
+futures-util = { version = "0.3", default-features = false, features = ["std"] }
+llrt_modules = { version = "=0.8.1-beta", default-features = false, features = ["abort", "buffer", "crypto", "crypto-rust", "events", "exceptions", "fetch", "stream-web", "timers", "url", "util", "path", "intl", "tls-ring"] }
+llrt_utils = { package = "llrt_utils_watts", version = "=0.8.1-beta" }
+rquickjs = { version = "=0.11.0", features = ["full-async"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+sha1 = "0.10"
+uuid = { version = "1", features = ["v4"] }
+tokio = { version = "1", features = ["rt", "time", "sync", "net", "macros"] }
+
+[dev-dependencies]
+tokio = { version = "1", features = ["rt", "macros", "time", "sync", "net", "io-util"] }
+static_assertions = "1"
+
+[build-dependencies]
+flate2 = "1"
+reqwest = { version = "0.12", default-features = false, features = ["blocking", "rustls-tls-native-roots"] }
+sha2 = "0.10"
+tar = "0.4"
+toml = "0.8"
